@@ -156,6 +156,19 @@ object Format {
   ) extends Step derives ReadWriter
 
   /**
+   * Formats Java files with the Eclipse JDT formatter.
+   * @param version Eclipse JDT version, e.g. `4.35`. Defaults to the Spotless default for the running JVM.
+   * @param settingsFiles Eclipse formatter settings, e.g. a formatter profile `formatter.xml`
+   *                      exported from Eclipse or IntelliJ IDEA (`Eclipse XML Profile`), or a
+   *                      `org.eclipse.jdt.core.prefs` file. The Eclipse defaults are used when empty.
+   * @see [[https://github.com/diffplug/spotless/blob/main/lib-extra/src/main/java/com/diffplug/spotless/extra/java/EclipseJdtFormatterStep.java EclipseJdtFormatterStep]]
+   */
+  case class EclipseJdt(
+      version: String = null,
+      settingsFiles: Seq[RelPathRef] = Seq()
+  ) extends Step derives ReadWriter
+
+  /**
    * @see [[https://github.com/diffplug/spotless/blob/main/lib/src/main/java/com/diffplug/spotless/java/FormatAnnotationsStep.java FormatAnnotationsStep]]
    */
   case class FormatAnnotations(
