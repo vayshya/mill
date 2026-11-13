@@ -100,7 +100,9 @@ class ToFormatterStep(charset: Charset, provisioner: Provisioner)
       builder.setVersion(Option(version).getOrElse(EclipseJdtFormatterStep.defaultVersion()))
       if settingsFiles.nonEmpty then
         builder.setPreferences(settingsFiles.map { ref =>
-          path(ref).getOrElse(sys.error(s"EclipseJdt settings file not found: ${ref.ref.path}")).toIO
+          path(
+            ref
+          ).getOrElse(sys.error(s"EclipseJdt settings file not found: ${ref.ref.path}")).toIO
         }.asJava)
       builder.build()
     case step: FormatAnnotations =>
