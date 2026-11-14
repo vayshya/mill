@@ -96,8 +96,10 @@ trait JavaModule
     override def resources = super[JavaModule].resources
     override def generatedSources: T[Seq[PathRef]] = Task {
       val sourceRoot = Task.dest / "quarantined-api"
+      val annotationDir = sourceRoot / "mill" / "javalib" / "api"
+      os.makeDir.all(annotationDir)
       os.write(
-        sourceRoot / "mill" / "javalib" / "api" / "Quarantined.java",
+        annotationDir / "Quarantined.java",
         """package mill.javalib.api;
 
 import java.lang.annotation.ElementType;
