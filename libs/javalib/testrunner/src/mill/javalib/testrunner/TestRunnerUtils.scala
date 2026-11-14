@@ -213,7 +213,7 @@ import scala.math.Ordering.Implicits.*
 
   private val QuarantinedAnnotationName = "mill.javalib.api.Quarantined"
 
-  private def quarantineReason(e: Event): Option[String] = {
+  private def quarantineReason(e: Event, cl: ClassLoader): Option[String] = {
     val (className, testSelector) = e.selector() match {
       case s: NestedTestSelector => (e.fullyQualifiedName() + s.suiteId(), s.testName())
       case s: TestSelector => (e.fullyQualifiedName(), s.testName())
@@ -229,7 +229,6 @@ import scala.math.Ordering.Implicits.*
         Some(testSelector.substring(openParen + 1, closeParen))
       else None
     scala.util.Try {
-      val cl = Thread.currentThread().getContextClassLoader
       val cls = Class.forName(className, false, cl)
       (cls.getDeclaredMethods.toSeq ++ cls.getMethods.toSeq)
         .filter { method =>
@@ -247,7 +246,7 @@ import scala.math.Ordering.Implicits.*
     }.toOption.flatten
   }
 
-  def parseRunTaskResults(events: Iterator[Event]): Iterator[TestResult] = {
+  def parseRunTaskResults(events: Iterator[Event], cl: ClassLoader): Iterator[TestResult] = {
     for (e <- events) yield {
       val ex = Option.when(e.throwable().isDefined) { e.throwable().get }
       testrunner.TestResult(
@@ -264,14 +263,15 @@ import scala.math.Ordering.Implicits.*
         ex.map(_.getClass.getName),
         ex.map(_.getMessage),
         ex.map(_.getStackTrace.toIndexedSeq),
-        quarantineReason(e)
+        quarantineReason(e, cl)
       )
     }
   }
 
   private def handleRunnerDone(
       runner: Runner,
-      events: ConcurrentLinkedQueue[Event]
+      events: ConcurrentLinkedQueue[Event],
+      cl: ClassLoader
   ): (String, Iterator[TestResult]) = {
     val doneMessage = runner.done()
     if (doneMessage != null && doneMessage.nonEmpty) {
@@ -281,7 +281,7 @@ import scala.math.Ordering.Implicits.*
         println(doneMessage)
     }
 
-    val results = parseRunTaskResults(events.iterator().asScala)
+    val results = parseRunTaskResults(events.iterator().asScala, cl)
 
     (doneMessage, results)
   }
@@ -290,7 +290,8 @@ import scala.math.Ordering.Implicits.*
       tasksSeq: Seq[Seq[Task]],
       testReporter: TestReporter,
       runner: Runner,
-      resultPathOpt: Option[os.Path]
+      resultPathOpt: Option[os.Path],
+      cl: ClassLoader
   ): (String, Iterator[TestResult]) = {
     // Capture this value outside of the task event handler so it
     // isn't affected by a test framework's stream redirects
@@ -315,7 +316,7 @@ import scala.math.Ordering.Implicits.*
       resultLog()
     }
 
-    handleRunnerDone(runner, events)
+    handleRunnerDone(runner, events, cl)
   }
 
   def runTestFramework0(
@@ -335,7 +336,7 @@ import scala.math.Ordering.Implicits.*
       getTestTasks(framework, args, classFilter, cl, testClassfilePath, discoveredTestClasses)
 
     val (doneMessage, results) =
-      runTasks(tasksArr.view.map(_.toSeq).toSeq, testReporter, runner, resultPathOpt)
+      runTasks(tasksArr.view.map(_.toSeq).toSeq, testReporter, runner, resultPathOpt, cl)
 
     (doneMessage, results.toSeq)
   }
@@ -345,6 +346,7 @@ import scala.math.Ordering.Implicits.*
       testClasses: Seq[ClassWithFingerprint],
       testReporter: TestReporter,
       runner: Runner,
+      cl: ClassLoader,
       claimFolder: os.Path,
       testClassQueueFolder: os.Path,
       resultPath: os.Path
@@ -394,7 +396,7 @@ import scala.math.Ordering.Implicits.*
       }
     }
 
-    handleRunnerDone(runner, events)
+    handleRunnerDone(runner, events, cl)
   }
 
   def claimFile(file: os.Path, claimFolder: os.Path): Option[String] = {
@@ -431,6 +433,7 @@ import scala.math.Ordering.Implicits.*
       testClasses,
       testReporter,
       runner,
+      cl,
       claimFolder,
       testClassQueueFolder,
       resultPath
