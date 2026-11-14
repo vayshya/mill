@@ -121,6 +121,12 @@ public @interface Quarantined {
       )
       super.generatedSources() :+ PathRef(sourceRoot)
     }
+
+    // The quarantine annotation is compiled into the test module, but is not a test suite.
+    override def testForkGrouping: T[Seq[Seq[String]]] = Task {
+      super.testForkGrouping().map(_.filterNot(_ == "mill.javalib.api.Quarantined"))
+    }
+
     override def moduleDeps: Seq[JavaModule] =
       Seq(outer) ++ outer.configModuleDeps
         .getOrElse(moduleSegments.parts.last, Nil)
