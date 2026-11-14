@@ -526,12 +526,18 @@ private[mill] object TestModuleUtil {
     def testcaseName(testResult: TestResult) =
       testResult.selector.replace(s"${testResult.fullyQualifiedName}.", "")
 
-    def properties: Elem = {
+    def properties(testResults: Seq[TestResult]): Elem = {
       val ps = props.map { case (key, value) =>
         <property name={key} value={value}/>
       }
+      val quarantineProperties = testResults.flatMap { testResult =>
+        testResult.quarantineReason.map { reason =>
+          <property name={"quarantine.reason." + testResult.selector} value={reason}/>
+        }
+      }
       <properties>
         {ps}
+        {quarantineProperties}
       </properties>
     }
 
@@ -541,13 +547,6 @@ private[mill] object TestModuleUtil {
         <testcase classname={testResult.fullyQualifiedName}
                   name={testName}
                   time={durationAsString(testResult.duration)}>
-          {
-          testResult.quarantineReason.map(reason =>
-            <properties>
-              <property name="quarantine.reason" value={reason}/>
-            </properties>
-          ).orNull
-        }
           {testCaseStatus(testResult).orNull}
         </testcase>
       }
@@ -561,7 +560,7 @@ private[mill] object TestModuleUtil {
       }
                  time={durationAsString(testResults.map(_.duration).sum)}
                  timestamp={formatTimestamp(timestamp)}>
-        {properties}
+        {properties(testResults)}
         {cases}
       </testsuite>
     }
