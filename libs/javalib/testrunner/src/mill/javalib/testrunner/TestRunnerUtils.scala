@@ -219,7 +219,7 @@ import scala.math.Ordering.Implicits.*
       case s: TestSelector => (e.fullyQualifiedName(), s.testName())
       case _ => return None
     }
-    val methodName = testSelector.takeWhile(_ != '(').split("\\\\.").lastOption.getOrElse(testSelector)
+    val methodName = testSelector.takeWhile(_ != '(').split("\\.").lastOption.getOrElse(testSelector)
     scala.util.Try {
       val cl = Thread.currentThread().getContextClassLoader
       val cls = Class.forName(className, false, cl)
