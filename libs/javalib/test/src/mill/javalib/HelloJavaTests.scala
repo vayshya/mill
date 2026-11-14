@@ -203,11 +203,18 @@ object HelloJavaTests extends TestSuite {
           ("hello.Junit5TestsA", "coreTest()", "Success"),
           ("hello.Junit5TestsA", "palindromes(String):1", "Success"),
           ("hello.Junit5TestsA", "palindromes(String):2", "Success"),
+          ("hello.Junit5TestsA", "quarantinedFailure()", "Failure"),
           ("hello.Junit5TestsA", "skippedTest()", "Skipped"),
           ("hello.Junit5TestsB", "packagePrivateTest()", "Success")
         )
 
         assert(testResults == expected)
+        assert(
+          result3.value.results
+            .find(_.selector == "quarantinedFailure()")
+            .flatMap(_.quarantineReason)
+            .contains("Unstable external dependency")
+        )
       }
     }
     test("failures") {
