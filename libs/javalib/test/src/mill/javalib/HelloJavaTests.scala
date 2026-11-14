@@ -215,6 +215,15 @@ object HelloJavaTests extends TestSuite {
             .flatMap(_.quarantineReason)
             .contains("Unstable external dependency")
         )
+        val xmlReport = TestModuleUtil
+          .genTestXmlReport(result3.value.results, java.time.Instant.now(), Map.empty)
+          .get
+          .toString
+        assert(
+          xmlReport.contains("quarantine.reason.quarantinedFailure()"),
+          xmlReport.contains("Unstable external dependency"),
+          xmlReport.contains("<failure")
+        )
       }
     }
     test("failures") {
