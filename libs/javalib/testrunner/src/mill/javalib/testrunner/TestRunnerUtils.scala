@@ -219,12 +219,25 @@ import scala.math.Ordering.Implicits.*
       case s: TestSelector => (e.fullyQualifiedName(), s.testName())
       case _ => return None
     }
-    val methodName = testSelector.takeWhile(_ != '(').split("\\.").lastOption.getOrElse(testSelector)
+    val openParen = testSelector.indexOf('(')
+    val closeParen = testSelector.indexOf(')', openParen + 1)
+    val methodName =
+      (if (openParen >= 0) testSelector.substring(0, openParen) else testSelector)
+        .split("\\.").lastOption.getOrElse(testSelector)
+    val parameterTypes =
+      if (openParen >= 0 && closeParen > openParen)
+        Some(testSelector.substring(openParen + 1, closeParen))
+      else None
     scala.util.Try {
       val cl = Thread.currentThread().getContextClassLoader
       val cls = Class.forName(className, false, cl)
       (cls.getDeclaredMethods.toSeq ++ cls.getMethods.toSeq)
-        .filter(_.getName == methodName)
+        .filter { method =>
+          method.getName == methodName &&
+          parameterTypes.forall { parameters =>
+            method.getParameterTypes.map(_.getSimpleName).mkString(", ") == parameters
+          }
+        }
         .iterator
         .flatMap(_.getDeclaredAnnotations.iterator)
         .find(_.annotationType().getName == QuarantinedAnnotationName)
