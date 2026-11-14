@@ -1,0 +1,219 @@
+= Quarantine System Requirements
+:toc:
+:toclevels: 3
+:sectnums:
+
+== Purpose
+
+Define the observable behavior of quarantined tests in Mill, including declaration, execution, diagnostics, test reports, and CI reporting.
+
+A quarantined test is a test whose failure is expected to be temporarily tolerated. Its failure must remain visible and attributable, but must not fail the test task. A quarantine declaration is not a way to hide a test result.
+
+== Scope
+
+The current implementation is in the Java test module and provides the generated annotation `mill.javalib.api.Quarantined`. The requirements below describe the intended quarantine-system behavior. Where a requirement is not covered by an existing test, its acceptance-test ID is a test to add; it is not a claim that the behavior is already implemented.
+
+Cross-language availability is a system requirement: languages with Mill test-module integrations must expose the same annotation name and semantics where technically applicable. The acceptance tests listed here currently target the Java integration unless a language-specific test is named.
+
+== Terms
+
+[cols="1,3",options="header"]
+|===
+|Term |Definition
+
+|Quarantined test
+|A test method explicitly marked with the quarantine annotation.
+
+|Quarantine reason
+|A non-empty explanation supplied at the declaration site for why the test is quarantined.
+
+|Quarantined failure
+|A test result with status `Failure` or `Error` and a valid quarantine declaration.
+
+|Ordinary failure
+|A test result with status `Failure` or `Error` and no valid quarantine declaration.
+
+|Quarantine report
+|The test output and CI summary that identify quarantined failures separately from ordinary failures.
+|===
+
+== Requirements
+
+=== Declaration
+
+==== QSYS-DECL-001 — Common annotation name
+
+The quarantine declaration MUST use the same fully qualified annotation name across supported JVM languages: `mill.javalib.api.Quarantined`.
+
+.Acceptance tests
+* AT-QSYS-DECL-001a — Java test compilation and runtime discovery recognize `mill.javalib.api.Quarantined`.
+* AT-QSYS-DECL-001b — Each additional supported JVM-language integration uses that exact fully qualified name and is recognized by the common test-result pipeline.
+
+==== QSYS-DECL-002 — Mandatory reason
+
+Every quarantine declaration MUST provide a reason. A declaration without a reason MUST fail compilation or validation before the test is run. An empty or whitespace-only reason MUST be rejected.
+
+.Acceptance tests
+* AT-QSYS-DECL-002a — A declaration with a non-empty reason compiles and is associated with the matching test result.
+* AT-QSYS-DECL-002b — A declaration without a reason is rejected.
+* AT-QSYS-DECL-002c — Empty and whitespace-only reasons are rejected.
+
+==== QSYS-DECL-003 — Method-level association
+
+A quarantine declaration MUST apply only to the test method on which it is declared. It MUST NOT accidentally classify another overload, parameterized invocation, method with a similar name, or another test in the same class as quarantined.
+
+.Acceptance tests
+* AT-QSYS-DECL-003a — Only the annotated JUnit 5 test method receives its quarantine reason.
+* AT-QSYS-DECL-003b — An overloaded method without the annotation remains an ordinary test.
+* AT-QSYS-DECL-003c — Every invocation of an annotated parameterized test is associated with the declaration and reason.
+
+=== Execution and task outcome
+
+==== QSYS-EXEC-001 — Quarantined failure does not fail the test task
+
+A quarantined test result with status `Failure` or `Error` MUST be reported as a quarantined failure and MUST NOT, by itself, cause the Mill test task to fail.
+
+.Acceptance tests
+* AT-QSYS-EXEC-001a — A test suite containing only a failing quarantined test completes successfully at the Mill task level.
+* AT-QSYS-EXEC-001b — A test suite containing both passing tests and failing quarantined tests completes successfully at the Mill task level.
+
+==== QSYS-EXEC-002 — Ordinary failures remain fatal
+
+An ordinary test result with status `Failure` or `Error` MUST fail the Mill test task, regardless of whether other tests in the same run are quarantined.
+
+.Acceptance tests
+* AT-QSYS-EXEC-002a — An ordinary assertion failure makes the test task fail.
+* AT-QSYS-EXEC-002b — A run containing both an ordinary failure and a quarantined failure fails because of the ordinary failure.
+* AT-QSYS-EXEC-002c — An ordinary error (not an assertion failure) makes the test task fail.
+
+==== QSYS-EXEC-003 — Quarantine does not change successful results
+
+A passing quarantined test MUST remain a passing test. Its quarantine declaration MUST NOT turn a successful result into a failure, skipped result, or warning.
+
+.Acceptance tests
+* AT-QSYS-EXEC-003a — A passing test marked with the quarantine annotation is reported as passed and does not increment the quarantined-failure count.
+
+==== QSYS-EXEC-004 — Quarantine does not mean skipped
+
+A quarantined test MUST execute normally. If it fails, its actual failure status and diagnostic information MUST be retained; quarantine MUST NOT be implemented by skipping or disabling the test.
+
+.Acceptance tests
+* AT-QSYS-EXEC-004a — A failing quarantined test is shown as executed and failed, with its exception/message and stack trace available.
+* AT-QSYS-EXEC-004b — A separately disabled test remains skipped and is not counted as a quarantined failure.
+
+=== Counts and console output
+
+==== QSYS-REPORT-001 — Separate quarantined-failure count
+
+Every test run MUST expose the number of failed quarantined tests separately from the number of ordinary failures. The quarantined count MUST count test cases, not test classes, worker processes, or suites.
+
+.Acceptance tests
+* AT-QSYS-REPORT-001a — A run with three quarantined failing test cases reports a quarantined-failure count of three.
+* AT-QSYS-REPORT-001b — A run with passing quarantined tests reports zero quarantined failures.
+* AT-QSYS-REPORT-001c — Parallel execution aggregates quarantined failures across workers without double-counting or losing results.
+
+==== QSYS-REPORT-002 — Console summary
+
+The test-run summary MUST contain a distinct, clearly labelled line for quarantined failures, including when the count is zero. Ordinary failures MUST remain distinguishable from quarantined failures.
+
+.Acceptance tests
+* AT-QSYS-REPORT-002a — Console output for a run with quarantined failures contains a separate quarantined-failure count.
+* AT-QSYS-REPORT-002b — Console output distinguishes ordinary failures from quarantined failures in a mixed run.
+* AT-QSYS-REPORT-002c — A run without quarantined failures reports a quarantined-failure count of zero.
+
+==== QSYS-REPORT-003 — Per-test diagnostics
+
+For each quarantined failure, the output MUST identify the fully qualified test name, the failure status, the failure message/exception, and the quarantine reason. The reason MUST be visible without requiring the reader to infer it from a generated property key.
+
+.Acceptance tests
+* AT-QSYS-REPORT-003a — Console/log output for a quarantined failure includes its test identity and quarantine reason.
+* AT-QSYS-REPORT-003b — Console/log output for a mixed run identifies ordinary failures separately and does not label them as quarantined.
+
+=== JUnit XML
+
+==== QSYS-XML-001 — Preserve test-case identity and outcome
+
+The JUnit XML report MUST contain a test case for every executed test, including quarantined failures. A quarantined failure MUST retain its failure/error diagnostics and MUST be machine-identifiable as quarantined.
+
+.Acceptance tests
+* AT-QSYS-XML-001a — XML for a quarantined assertion failure contains the test case, failure details, and quarantine metadata/reason.
+* AT-QSYS-XML-001b — XML for a quarantined error contains the test case, error details, and quarantine metadata/reason.
+* AT-QSYS-XML-001c — XML for ordinary failures contains no quarantine metadata.
+
+==== QSYS-XML-002 — Report quarantine counts separately
+
+The XML report MUST expose a machine-readable count of quarantined failures separately from ordinary failures, at the report root and/or in a documented properties section. The count MUST represent failed test cases and MUST be consistent with the test-case entries.
+
+.Acceptance tests
+* AT-QSYS-XML-002a — XML for a run with both ordinary and quarantined failures exposes distinct counts for each category.
+* AT-QSYS-XML-002b — XML counts remain correct when results are grouped into multiple test suites.
+* AT-QSYS-XML-002c — XML reports zero quarantined failures when none occurred.
+
+==== QSYS-XML-003 — Escape and preserve reason text
+
+The quarantine reason MUST be preserved as XML-safe text. XML-special characters and non-ASCII characters MUST not corrupt the report.
+
+.Acceptance tests
+* AT-QSYS-XML-003a — A reason containing ampersands, angle brackets, quotes, and non-ASCII text round-trips through the generated XML.
+
+=== CI integration
+
+==== QSYS-CI-001 — Quarantined failures do not fail CI
+
+A CI job whose only test failures are quarantined MUST succeed, provided the test process and all other job steps succeed. An ordinary test failure MUST continue to fail CI.
+
+.Acceptance tests
+* AT-QSYS-CI-001a — A CI test job with only quarantined failures exits successfully.
+* AT-QSYS-CI-001b — A CI test job with an ordinary failure exits unsuccessfully.
+* AT-QSYS-CI-001c — A CI test job with both categories exits unsuccessfully because of the ordinary failure.
+
+==== QSYS-CI-002 — CI summary separates quarantine results
+
+The CI report/summary MUST show the quarantined-failure count as a separate line or field, and MUST retain links or annotations for the individual test failures where supported by the reporting integration.
+
+.Acceptance tests
+* AT-QSYS-CI-002a — The GitHub Actions job summary shows the quarantined-failure count separately from ordinary failures.
+* AT-QSYS-CI-002b — Quarantined failures remain identifiable in the published test report and are not presented as ordinary build-breaking failures.
+* AT-QSYS-CI-002c — Ordinary failures continue to be reported as ordinary failures.
+
+== Acceptance-test traceability
+
+The following tests already exist in the current `quarantine-system` branch and provide partial coverage:
+
+[cols="2,3,2",options="header"]
+|===
+|Acceptance test |Current test location |Coverage
+
+|AT-QSYS-DECL-001a
+|`libs/javalib/test/src/mill/javalib/HelloJavaTests.scala`, test group `test`, JUnit 5 fixture
+|Annotation is imported and used.
+
+|AT-QSYS-DECL-002a
+|`libs/javalib/test/resources/hello-java/app/testJunit5/src/Junit5TestsA.java`, method `quarantinedFailure`
+|A non-empty reason is declared.
+
+|AT-QSYS-DECL-003a
+|`libs/javalib/test/src/mill/javalib/HelloJavaTests.scala`, test group `test`
+|The result for `quarantinedFailure()` carries the expected reason.
+
+|AT-QSYS-XML-001a
+|`libs/javalib/test/src/mill/javalib/HelloJavaTests.scala`, test group `test`
+|XML contains quarantine reason metadata and a failure element.
+
+|AT-QSYS-EXEC-001a
+|`libs/javalib/test/src/mill/javalib/HelloJavaTests.scala`, test group `test`
+|Not yet covered: the existing fixture checks the test-run result and XML, but does not assert successful Mill task outcome for a quarantined-only run.
+|===
+
+All other acceptance-test IDs in this document are required coverage to add. A requirement is not considered accepted merely because a similarly named implementation detail exists; its acceptance test MUST assert the externally observable behavior described above.
+
+== Acceptance criteria for the quarantine system
+
+The quarantine system is acceptable when:
+
+. Every quarantine declaration has a non-empty reason and uses the common annotation name.
+. Quarantined failures are executed, counted, and reported with their original diagnostics.
+. Quarantined failures alone do not fail the Mill test task or CI job.
+. Ordinary failures continue to fail the Mill test task and CI job.
+. Console output, JUnit XML, and CI summaries distinguish quarantined failures from ordinary failures and expose an accurate separate count.
+. Every requirement above is covered by its linked passing acceptance tests.
