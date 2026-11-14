@@ -295,6 +295,49 @@ object TestModuleUtilTests extends TestSuite {
     }
 
     // format: on
+    test("mixed outcomes across test suites") {
+      val results = Seq(
+        succeededTestResult,
+        failedTestResult,
+        TestResult(
+          "mill.scalalib.TestModuleTests2",
+          "mill.scalalib.TestModuleTests2.error",
+          2400,
+          "Error",
+          Some("java.lang.RuntimeException"),
+          Some("boom"),
+          None
+        ),
+        TestResult(
+          "mill.scalalib.TestModuleTests2",
+          "mill.scalalib.TestModuleTests2.skipped",
+          100,
+          "Skipped",
+          None,
+          None,
+          None
+        )
+      )
+      val report = TestModuleUtil.genTestXmlReport(results, instant, Map.empty).get
+      val suites = (report \\ "testsuite")
+      val firstSuite = suites.find(_ \ "@name" exists (_.text == "mill.scalalib.TestModuleTests")).get
+      val secondSuite = suites.find(_ \ "@name" exists (_.text == "mill.scalalib.TestModuleTests2")).get
+
+      assert(
+        (report \ "@tests").text == "4",
+        (report \ "@failures").text == "1",
+        (report \ "@errors").text == "1",
+        (report \ "@skipped").text == "1",
+        (firstSuite \ "@tests").text == "2",
+        (firstSuite \ "@failures").text == "1",
+        (secondSuite \ "@tests").text == "2",
+        (secondSuite \ "@errors").text == "1",
+        (secondSuite \ "@skipped").text == "1",
+        (report \\ "failure").size == 1,
+        (report \\ "error").size == 1,
+        (report \\ "skipped").size == 1
+      )
+    }
     test("testSubprocessCount") {
       assert(
         TestModuleUtil.testSubprocessCount(
