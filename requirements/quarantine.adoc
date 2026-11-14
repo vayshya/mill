@@ -176,9 +176,63 @@ The CI report/summary MUST show the quarantined-failure count as a separate line
 * AT-QSYS-CI-002b — Quarantined failures remain identifiable in the published test report and are not presented as ordinary build-breaking failures.
 * AT-QSYS-CI-002c — Ordinary failures continue to be reported as ordinary failures.
 
+== Characterization requirements for existing test behavior
+
+This section records behavior that predates the quarantine feature and must remain
+unchanged. These are compatibility requirements, not new quarantine semantics.
+The referenced tests characterize the current implementation.
+
+=== CHR-001 — JUnit XML preserves ordinary test outcomes
+
+The JUnit XML report MUST represent successful tests without a failure element,
+assertion failures with a `failure` element, runtime errors with an `error`
+element, and skipped/ignored/pending tests with a `skipped` element. Failure
+messages, exception types, stack traces, test identity, and duration MUST be
+preserved when available. Missing failure details MUST produce the existing
+fallback diagnostic rather than dropping the test case.
+
+.Characterization tests
+* AT-CHR-001a — `TestModuleUtilTests`, tests `success`, `fail`, `fail - empty message`, `error`, and `error - empty message`.
+* AT-CHR-001b — `TestModuleUtilTests`, test `skipped`, covers `Skipped`, `Ignored`, and `Pending` statuses.
+* AT-CHR-001c — `TestModuleUtilTests`, test `multi test cases`, covers multiple test cases in one suite.
+
+=== CHR-002 — JUnit XML aggregates suite and root counters
+
+The JUnit XML report MUST aggregate the number of tests, failures, errors,
+skipped tests, and elapsed time at the report root and per-suite level. A test
+case MUST contribute to the counters of exactly one suite and to the root
+counters exactly once.
+
+.Characterization tests
+* AT-CHR-002a — `TestModuleUtilTests`, test `multi test suites`, covers multiple suites and root aggregation for success/failure.
+* AT-CHR-002b — `TestModuleUtilTests`, test `mixed outcomes across test suites`, covers success, failure, error, and skipped outcomes together across two suites.
+
+=== CHR-003 — Ordinary test task failures remain fatal
+
+A test run containing an ordinary failing test MUST be represented as a failed
+Mill test task. A run containing only successful tests MUST return successful
+test results. A disabled JUnit test MUST remain skipped rather than being
+reported as executed or failed.
+
+.Characterization tests
+* AT-CHR-003a — `HelloJavaTests`, test group `test`, asserts that the ordinary failing JUnit 4 test task returns `ExecResult.Failure`.
+* AT-CHR-003b — `HelloJavaTests`, test group `test`, asserts successful JUnit 4 and JUnit 5 test results.
+* AT-CHR-003c — `HelloJavaTests`, test group `test`, asserts that `skippedTest()` has status `Skipped`.
+
+=== CHR-004 — Test subprocess sizing and class-name compaction
+
+The test runner MUST preserve the established subprocess-count behavior for
+parallel and non-parallel execution, including empty and single-class inputs.
+The console class-name compaction helper MUST produce stable abbreviated names
+for sorted class-name inputs.
+
+.Characterization tests
+* AT-CHR-004a — `TestModuleUtilTests`, test `testSubprocessCount`.
+* AT-CHR-004b — `TestModuleUtilTests`, test `collapseTestClassNames`.
+
 == Acceptance-test traceability
 
-The following tests already exist in the current `quarantine-system` branch and provide partial coverage:
+The following tests already exist in the current `quarantine-system` branch and provide partial coverage of the quarantine requirements. Characterization coverage for pre-existing behavior is listed separately in the preceding section.
 
 [cols="2,3,2",options="header"]
 |===
@@ -205,7 +259,7 @@ The following tests already exist in the current `quarantine-system` branch and 
 |Not yet covered: the existing fixture checks the test-run result and XML, but does not assert successful Mill task outcome for a quarantined-only run.
 |===
 
-All other acceptance-test IDs in this document are required coverage to add. A requirement is not considered accepted merely because a similarly named implementation detail exists; its acceptance test MUST assert the externally observable behavior described above.
+All other quarantine acceptance-test IDs in this document are required coverage to add. A requirement is not considered accepted merely because a similarly named implementation detail exists; its acceptance test MUST assert the externally observable behavior described above.
 
 == Acceptance criteria for the quarantine system
 
