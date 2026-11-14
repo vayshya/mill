@@ -80,7 +80,13 @@ jobs:
 
   test-dist:
     if: (github.event.action == 'ready_for_review') || (github.event.pull_request.draft == false)
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - windows-latest
     steps:
       - uses: actions/checkout@v7
         with:
