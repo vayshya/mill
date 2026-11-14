@@ -475,7 +475,7 @@ private[mill] object TestModuleUtil {
   ): Result[(msg: String, results: Seq[TestResult])] = {
 
     val badTests: Seq[TestResult] =
-      results.filter(x => Set("Error", "Failure").contains(x.status))
+      results.filter(x => Set("Error", "Failure").contains(x.status) && x.quarantineReason.isEmpty)
     if (badTests.isEmpty) {
       Result.Success((msg = doneMsg, results = results))
     } else {
@@ -541,6 +541,13 @@ private[mill] object TestModuleUtil {
         <testcase classname={testResult.fullyQualifiedName}
                   name={testName}
                   time={durationAsString(testResult.duration)}>
+          {
+          testResult.quarantineReason.map(reason =>
+            <properties>
+              <property name="quarantine.reason" value={reason}/>
+            </properties>
+          ).orNull
+        }
           {testCaseStatus(testResult).orNull}
         </testcase>
       }

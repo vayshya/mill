@@ -94,6 +94,31 @@ trait JavaModule
     hierarchyChecks()
 
     override def resources = super[JavaModule].resources
+    override def generatedSources: T[Seq[PathRef]] = Task {
+      val sourceRoot = Task.dest / "quarantined-api"
+      os.write(
+        sourceRoot / "mill" / "javalib" / "api" / "Quarantined.java",
+        """package mill.javalib.api;
+
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
+
+/**
+ * Marks a test whose failure is reported but does not fail the test task.
+ *
+ * @param value the reason why the test is quarantined
+ */
+@Retention(RetentionPolicy.RUNTIME)
+@Target(ElementType.METHOD)
+public @interface Quarantined {
+  String value();
+}
+"""
+      )
+      super.generatedSources() :+ PathRef(sourceRoot)
+    }
     override def moduleDeps: Seq[JavaModule] =
       Seq(outer) ++ outer.configModuleDeps
         .getOrElse(moduleSegments.parts.last, Nil)

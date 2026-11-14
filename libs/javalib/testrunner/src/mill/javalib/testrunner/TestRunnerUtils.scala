@@ -211,6 +211,29 @@ import scala.math.Ordering.Implicits.*
     taskStatus.get()
   }
 
+  private val QuarantinedAnnotationName = "mill.javalib.api.Quarantined"
+
+  private def quarantineReason(e: Event): Option[String] = {
+    val (className, testSelector) = e.selector() match {
+      case s: NestedTestSelector => (e.fullyQualifiedName() + s.suiteId(), s.testName())
+      case s: TestSelector => (e.fullyQualifiedName(), s.testName())
+      case _ => return None
+    }
+    val methodName = testSelector.takeWhile(_ != '(').split('.').lastOption.getOrElse(testSelector)
+    scala.util.Try {
+      val cl = Thread.currentThread().getContextClassLoader
+      val cls = Class.forName(className, false, cl)
+      (cls.getDeclaredMethods.toSeq ++ cls.getMethods.toSeq)
+        .filter(_.getName == methodName)
+        .iterator
+        .flatMap(_.getDeclaredAnnotations.iterator)
+        .find(_.annotationType().getName == QuarantinedAnnotationName)
+        .map { annotation =>
+          annotation.annotationType().getMethod("value").invoke(annotation).asInstanceOf[String]
+        }
+    }.toOption.flatten
+  }
+
   def parseRunTaskResults(events: Iterator[Event]): Iterator[TestResult] = {
     for (e <- events) yield {
       val ex = Option.when(e.throwable().isDefined) { e.throwable().get }
@@ -227,7 +250,8 @@ import scala.math.Ordering.Implicits.*
         e.status().toString,
         ex.map(_.getClass.getName),
         ex.map(_.getMessage),
-        ex.map(_.getStackTrace.toIndexedSeq)
+        ex.map(_.getStackTrace.toIndexedSeq),
+        quarantineReason(e)
       )
     }
   }
