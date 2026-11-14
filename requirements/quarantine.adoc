@@ -34,7 +34,7 @@ Cross-language availability is a system requirement: languages with Mill test-mo
 |A test result with status `Failure` or `Error` and no valid quarantine declaration.
 
 |Quarantine report
-|The test output and CI summary that identify quarantined failures separately from ordinary failures.
+|The test output and CI summary that identify quarantined results separately from ordinary results.
 |===
 
 == Requirements
@@ -91,7 +91,7 @@ An ordinary test result with status `Failure` or `Error` MUST fail the Mill test
 A passing quarantined test MUST remain a passing test. Its quarantine declaration MUST NOT turn a successful result into a failure, skipped result, or warning.
 
 .Acceptance tests
-* AT-QSYS-EXEC-003a — A passing test marked with the quarantine annotation is reported as passed and does not increment the quarantined-failure count.
+* AT-QSYS-EXEC-003a — A passing test marked with the quarantine annotation is reported as passed and does not increment either quarantined-failure or ordinary-failure counts.
 
 ==== QSYS-EXEC-004 — Quarantine does not mean skipped
 
@@ -114,20 +114,33 @@ Every test run MUST expose the number of failed quarantined tests separately fro
 
 ==== QSYS-REPORT-002 — Console summary
 
-The test-run summary MUST contain a distinct, clearly labelled line for quarantined failures, including when the count is zero. Ordinary failures MUST remain distinguishable from quarantined failures.
+The test-run summary MUST contain a distinct, clearly labelled line for quarantined failures and a distinct, clearly labelled line for successful quarantined tests. Both lines MUST be present even when their respective counts are zero. Ordinary failures MUST remain distinguishable from quarantined results.
 
 .Acceptance tests
 * AT-QSYS-REPORT-002a — Console output for a run with quarantined failures contains a separate quarantined-failure count.
 * AT-QSYS-REPORT-002b — Console output distinguishes ordinary failures from quarantined failures in a mixed run.
 * AT-QSYS-REPORT-002c — A run without quarantined failures reports a quarantined-failure count of zero.
+* AT-QSYS-REPORT-002d — Console output contains a separate successful-quarantined-test count, including when the count is zero.
+* AT-QSYS-REPORT-002e — A run containing both successful and failing quarantined tests reports their counts separately.
 
-==== QSYS-REPORT-003 — Per-test diagnostics
+==== QSYS-REPORT-003 — Per-test quarantine log entries
 
-For each quarantined failure, the output MUST identify the fully qualified test name, the failure status, the failure message/exception, and the quarantine reason. The reason MUST be visible without requiring the reader to infer it from a generated property key.
+For every executed quarantined test, regardless of whether it passes or fails, the console/log output MUST include an explicit quarantine marker and the declared quarantine reason. Each entry MUST identify the fully qualified test name and actual result status. Failure/error entries MUST also retain the failure message/exception and available stack trace. Quarantine information MUST be visible directly in the log entry, not only inferable from a generated property key.
 
 .Acceptance tests
-* AT-QSYS-REPORT-003a — Console/log output for a quarantined failure includes its test identity and quarantine reason.
-* AT-QSYS-REPORT-003b — Console/log output for a mixed run identifies ordinary failures separately and does not label them as quarantined.
+* AT-QSYS-REPORT-003a — A quarantined failure log entry includes an explicit quarantine marker, test identity, actual failure status, and quarantine reason.
+* AT-QSYS-REPORT-003b — A passing quarantined test log entry includes an explicit quarantine marker, test identity, passed status, and quarantine reason.
+* AT-QSYS-REPORT-003c — Console/log output for a mixed run identifies ordinary failures separately and does not label them as quarantined.
+* AT-QSYS-REPORT-003d — A quarantined error log entry retains its exception/message and available stack trace alongside the quarantine marker and reason.
+
+==== QSYS-REPORT-004 — Separate successful-quarantined-test count
+
+Every test run MUST expose the number of passing quarantined test cases separately from ordinary passing tests and quarantined failures. This count MUST count test cases, not test classes, worker processes, or suites, and MUST be aggregated across workers without double-counting.
+
+.Acceptance tests
+* AT-QSYS-REPORT-004a — A run with three passing quarantined test cases reports a successful-quarantined-test count of three.
+* AT-QSYS-REPORT-004b — A run without passing quarantined tests reports a successful-quarantined-test count of zero.
+* AT-QSYS-REPORT-004c — Parallel execution aggregates successful quarantined tests across workers without double-counting or losing results.
 
 === JUnit XML
 
@@ -266,8 +279,8 @@ All other quarantine acceptance-test IDs in this document are required coverage 
 The quarantine system is acceptable when:
 
 . Every quarantine declaration has a non-empty reason and uses the common annotation name.
-. Quarantined failures are executed, counted, and reported with their original diagnostics.
+. Quarantined tests execute normally, retain their actual result status and diagnostics, and are logged with an explicit quarantine marker and reason.
 . Quarantined failures alone do not fail the Mill test task or CI job.
 . Ordinary failures continue to fail the Mill test task and CI job.
-. Console output, JUnit XML, and CI summaries distinguish quarantined failures from ordinary failures and expose an accurate separate count.
+. Console output, JUnit XML, and CI summaries distinguish quarantined results from ordinary results and expose accurate separate counts for quarantined failures and successful quarantined tests in the console summary.
 . Every requirement above is covered by its linked passing acceptance tests.
