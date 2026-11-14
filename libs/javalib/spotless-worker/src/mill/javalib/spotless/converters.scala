@@ -1,5 +1,6 @@
 package mill.javalib.spotless
 
+import com.diffplug.spotless.extra.java.EclipseJdtFormatterStep
 import com.diffplug.spotless.generic.*
 import com.diffplug.spotless.java.*
 import com.diffplug.spotless.kotlin.*
@@ -93,6 +94,17 @@ class ToFormatterStep(charset: Charset, provisioner: Provisioner)
         includeDraft,
         provisioner
       )
+    case step: EclipseJdt =>
+      import step.*
+      val builder = EclipseJdtFormatterStep.createBuilder(provisioner)
+      builder.setVersion(Option(version).getOrElse(EclipseJdtFormatterStep.defaultVersion()))
+      if settingsFiles.nonEmpty then
+        builder.setPreferences(settingsFiles.map { ref =>
+          path(
+            ref
+          ).getOrElse(sys.error(s"EclipseJdt settings file not found: ${ref.ref.path}")).toIO
+        }.asJava)
+      builder.build()
     case step: FormatAnnotations =>
       import step.*
       FormatAnnotationsStep.create(addedTypeAnnotations.asJava, removedTypeAnnotations.asJava)
