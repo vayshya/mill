@@ -404,18 +404,28 @@ object `package` extends MillJavaModule with Proguard with DistModule {
     }
 
     val version = "v0.11.0"
+    val isWindows = scala.util.Properties.isWin
+    val archiveName =
+      if (isWindows) s"shellcheck-$version.zip"
+      else s"shellcheck-$version.$system.$arch.tar.xz"
     val link =
-      s"https://github.com/koalaman/shellcheck/releases/download/$version/shellcheck-$version.$system.$arch.tar.xz"
+      s"https://github.com/koalaman/shellcheck/releases/download/$version/$archiveName"
 
-    val archive = Task.dest / "ShellCheck.tar.xz"
+    val archive = Task.dest / archiveName
     os.write(archive, requests.get.stream(link))
 
     val unpacked = Task.dest / "unpacked"
     os.makeDir(unpacked)
-    os.proc("tar", "-xJf", archive, "-C", unpacked).call()
+    if (isWindows) {
+      os.proc("tar", "-xf", archive, "-C", unpacked).call()
+    } else {
+      os.proc("tar", "-xJf", archive, "-C", unpacked).call()
+    }
 
-    val binary = unpacked / s"shellcheck-$version" / "shellcheck"
-    os.perms.set(binary, "rwxr-xr-x")
+    val binary =
+      if (isWindows) unpacked / "shellcheck.exe"
+      else unpacked / s"shellcheck-$version" / "shellcheck"
+    if (!isWindows) os.perms.set(binary, "rwxr-xr-x")
 
     PathRef(binary)
   }
