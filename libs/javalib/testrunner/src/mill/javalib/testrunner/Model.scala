@@ -38,7 +38,8 @@ import mill.api.daemon.internal.{TestReporter, internal}
     status: String,
     exceptionName: Option[String] = None,
     exceptionMsg: Option[String] = None,
-    exceptionTrace: Option[Seq[StackTraceElement]] = None
+    exceptionTrace: Option[Seq[StackTraceElement]] = None,
+    quarantineReason: Option[String] = None
 )
 
 @internal object TestResult {
