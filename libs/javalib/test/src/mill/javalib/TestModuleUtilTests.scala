@@ -320,8 +320,10 @@ object TestModuleUtilTests extends TestSuite {
       )
       val report = TestModuleUtil.genTestXmlReport(results, instant, Map.empty).get
       val suites = (report \\ "testsuite")
-      val firstSuite = suites.find(suite => (suite \ "@name").text == "mill.scalalib.TestModuleTests").get
-      val secondSuite = suites.find(suite => (suite \ "@name").text == "mill.scalalib.TestModuleTests2").get
+      val firstSuite =
+        suites.find(suite => (suite \ "@name").text == "mill.scalalib.TestModuleTests").get
+      val secondSuite =
+        suites.find(suite => (suite \ "@name").text == "mill.scalalib.TestModuleTests2").get
 
       assert(
         (report \ "@tests").text == "4",
