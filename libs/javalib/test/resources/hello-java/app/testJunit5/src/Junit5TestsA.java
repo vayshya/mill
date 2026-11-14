@@ -3,6 +3,7 @@ package hello;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.Test;
+import mill.javalib.api.Quarantined;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -12,6 +13,12 @@ public class Junit5TestsA {
     @Test
     public void coreTest() {
         assertEquals(Core.msg(), "Hello World");
+    }
+
+    @Test
+    @Quarantined("Unstable external dependency")
+    public void quarantinedFailure() {
+        assertTrue(false);
     }
 
     @Test
