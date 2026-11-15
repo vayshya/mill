@@ -1,13 +1,9 @@
-# Reproduces the Windows lock on artifacts in dist.raw.localRepo.
-#
-# Run from the repository root after building the raw executable:
-#   ./out/dist/raw/executable.dest/mill.bat show dist.raw.executable
+# Regression test for Windows locking SNAPSHOT artifacts in dist.raw.localRepo.
+# Run from the repository root after building the raw Windows executable:
 #   pwsh -File scripts/test-windows-localrepo-lock.ps1
 #
-# The generated Windows launcher adds dist.raw.localRepo.dest to
-# COURSIER_REPOSITORIES. Loading the build definition then opens its SNAPSHOT
-# dependencies from that repository. Cleaning the repository from the same
-# Mill process must not fail because one of those JARs is still open.
+# A failure to delete mill-contrib-buildinfo_3-SNAPSHOT.jar while Mill
+# evaluates dist.raw.localRepo is the regression this test is intended to catch.
 
 $ErrorActionPreference = 'Stop'
 
@@ -22,28 +18,39 @@ if (-not (Test-Path $mill -PathType Leaf)) {
     throw "Raw Windows launcher not found: $mill`nBuild it first with the project's bootstrap Mill."
 }
 
+function Invoke-MillAndCapture([string[]] $MillArgs) {
+    $lines = @(& $mill @MillArgs 2>&1 | ForEach-Object { $_.ToString() })
+    $code = $LASTEXITCODE
+    $lines | ForEach-Object { Write-Host $_ }
+    return @{ ExitCode = $code; Output = ($lines -join "`n") }
+}
+
+function Test-LocalRepoLock([string] $Output) {
+    return $Output -match '(?is)dist[\\/]raw[\\/]localRepo\.dest.*mill-contrib-buildinfo_3-SNAPSHOT\.jar.*(being used by another process|занят другим процессом|used by another process|FileSystemException)'
+}
+
 Push-Location $repoRoot
 try {
-    Write-Host 'Preparing the local test repository...'
-    & $mill show dist.raw.localRepo
-    if ($LASTEXITCODE -ne 0) {
-        throw "Could not prepare dist.raw.localRepo (exit code $LASTEXITCODE)."
-    }
+    Write-Host 'Evaluating dist.raw.localRepo (this can itself reproduce the lock)...'
+    $result = Invoke-MillAndCapture @('show', 'dist.raw.localRepo')
 
-    Write-Host 'Cleaning dist.raw.localRepo from a JVM that has loaded the build...'
-    $output = & $mill clean dist.raw.localRepo 2>&1
-    $exitCode = $LASTEXITCODE
-    $output | ForEach-Object { Write-Host $_ }
-
-    if ($exitCode -ne 0) {
-        $joined = $output -join "`n"
-        if ($joined -match 'being used by another process|занят другим процессом|used by another process|FileSystemException') {
-            throw "REPRODUCED: dist.raw.localRepo cannot be cleaned while its SNAPSHOT JAR is open.`n$joined"
+    if ($result.ExitCode -ne 0) {
+        if (Test-LocalRepoLock $result.Output) {
+            throw "REPRODUCED: Windows refused to delete the SNAPSHOT JAR while evaluating dist.raw.localRepo.`n$($result.Output)"
         }
-        throw "The clean command failed for an unexpected reason (exit code $exitCode).`n$joined"
+        throw "Mill failed for an unrelated reason (exit code $($result.ExitCode)).`n$($result.Output)"
     }
 
-    Write-Host 'PASS: dist.raw.localRepo was cleaned while the Mill launcher was running.'
+    Write-Host 'Cleaning dist.raw.localRepo in a subsequent Mill invocation...'
+    $result = Invoke-MillAndCapture @('clean', 'dist.raw.localRepo')
+    if ($result.ExitCode -ne 0) {
+        if (Test-LocalRepoLock $result.Output) {
+            throw "REPRODUCED: Windows refused to delete the SNAPSHOT JAR while cleaning dist.raw.localRepo.`n$($result.Output)"
+        }
+        throw "Mill clean failed for an unrelated reason (exit code $($result.ExitCode)).`n$($result.Output)"
+    }
+
+    Write-Host 'PASS: dist.raw.localRepo was evaluated and cleaned without a Windows file-lock error.'
 }
 finally {
     Pop-Location
