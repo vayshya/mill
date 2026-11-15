@@ -135,6 +135,16 @@
   },
   {
     "includes": [
+      "glob:**/EclipseJdt"
+    ],
+    "steps": [
+      {
+        "$type": "EclipseJdt"
+      }
+    ]
+  },
+  {
+    "includes": [
       "glob:**/FormatAnnotations"
     ],
     "steps": [

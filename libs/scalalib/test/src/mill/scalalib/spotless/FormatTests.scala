@@ -11,5 +11,13 @@ object FormatTests extends TestSuite {
       val decoded = upickle.read[Format.RelPathRef](json)
       assert(decoded == value)
     }
+    test("eclipseJdtRoundTrip") {
+      val step: Format.Step = Format.EclipseJdt(
+        version = "4.35",
+        settingsFiles = Seq(Format.RelPathRef("formatter.xml"))
+      )
+      val decoded = upickle.read[Format.Step](upickle.write(step))
+      assert(decoded == step)
+    }
   }
 }
