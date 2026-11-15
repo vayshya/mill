@@ -26,7 +26,9 @@ function Invoke-MillAndCapture([string[]] $MillArgs) {
 }
 
 function Test-LocalRepoLock([string] $Output) {
-    return $Output -match '(?is)dist[\\/]raw[\\/]localRepo\.dest.*mill-contrib-buildinfo_3-SNAPSHOT\.jar.*(being used by another process|занят другим процессом|used by another process|FileSystemException)'
+    # Match the exception type and affected artifact path, not the localized
+    # Windows error text (which may be emitted with a different code page).
+    return $Output -match '(?is)java\.nio\.file\.FileSystemException:.*dist[\\/]raw[\\/]localRepo\.dest.*mill-contrib-buildinfo_3-SNAPSHOT\.jar'
 }
 
 Push-Location $repoRoot
