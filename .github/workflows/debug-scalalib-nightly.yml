@@ -1,0 +1,35 @@
+name: Debug Scala nightly tests
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Test target to run
+        required: true
+        type: choice
+        options:
+          - example.scalalib.module.16-scala-nightlies.testForked
+          - example.scalalib.dependencies.6-scala-nightly.testForked
+
+jobs:
+  run-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      FORCE_COLOR: '1'
+      MILL_TEST_SCHEDULED: 'false'
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: quarantine-system
+          fetch-depth: 1
+
+      - uses: coursier/cache-action@v9
+
+      - name: Select Java version
+        run: echo zulu:25 > .mill-jvm-version
+
+      - name: Run selected test
+        env:
+          TEST_TARGET: ${{ inputs.target }}
+        run: ./mill -i "$TEST_TARGET"
