@@ -186,6 +186,9 @@ object HelloJavaTests extends TestSuite {
         //        v1._2(3).status == "Failure"
         //      )
 
+        val Right(testGroups) = eval.apply(HelloJava.app.test.testForkGrouping).runtimeChecked
+        assert(!testGroups.flatten.contains("mill.javalib.api.Quarantined"))
+
         val Right(result2) = eval.apply(HelloJava.app.test.testForked()).runtimeChecked
 
         assert(

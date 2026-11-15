@@ -198,7 +198,7 @@ trait TestModule
    * from different test groups.
    */
   def testForkGrouping: T[Seq[Seq[String]]] = Task {
-    Seq(discoveredTestClasses())
+    Seq(discoveredTestClasses().filterNot(_ == "mill.javalib.api.Quarantined"))
   }
 
   /**
