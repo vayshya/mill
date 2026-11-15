@@ -30,7 +30,6 @@ jobs:
         with:
           distribution: zulu
           java-version: '25'
-          cache: 'coursier'
 
       - name: Build raw platform launcher (Unix)
         if: runner.os != 'Windows'
