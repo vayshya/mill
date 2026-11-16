@@ -170,6 +170,21 @@ function Get-MillProcesses {
         }
     }
 }
+function Assert-MillDaemonClasspathDoesNotReferenceLocalRepo([string] $Phase) {
+    $needle = $localRepo.Replace('\', '/').ToLowerInvariant()
+    $daemons = @(Get-MillProcesses | Where-Object Kind -eq 'daemon')
+    if ($daemons.Count -eq 0) {
+        throw "No Mill daemon process was found while checking its runner classpath after $Phase."
+    }
+    foreach ($daemon in $daemons) {
+        $normalized = $daemon.CommandLine.Replace('\', '/').ToLowerInvariant()
+        if ($normalized.Contains($needle)) {
+            throw "Mill daemon PID $($daemon.Id) was launched with runner classpath entries from the temporary localRepo after $Phase. The daemon outlives the launcher command and keeps those JARs open on Windows."
+        }
+    }
+    Write-Host "PASS: Mill daemon runner classpath is independent of localRepo after $Phase."
+}
+
 function Assert-MillProcesses([string] $Phase) {
     $processes = @(Get-MillProcesses)
     $daemons = @($processes | Where-Object Kind -eq 'daemon')
@@ -235,6 +250,7 @@ function Stop-MillProcesses([string] $Launcher, [string] $Phase) {
 
 function Run-LauncherMatrix([string] $Launcher, [string] $Label, [bool] $VerifyRebuildAfterClean = $true) {
     [void](Invoke-Mill $Launcher @('show', 'dist.raw.localRepo') "$Label / initial show")
+    Assert-MillDaemonClasspathDoesNotReferenceLocalRepo "$Label / initial show"
     Assert-LocalRepoHasNoOpenFiles "$Label / initial show"
     [void](Invoke-Mill $Launcher @('show', 'dist.raw.localRepo') "$Label / repeated show (daemon reuse)")
     Assert-LocalRepoHasNoOpenFiles "$Label / repeated show"
