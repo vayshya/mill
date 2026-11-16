@@ -116,7 +116,8 @@ Create a graph in which upstream and fork branches diverge from a common
 ancestor, and characterize the selected tag and count returned by the
 existing `git describe` / `git rev-list` commands. The expected values are
 asserted from the constructed graph rather than inferred from a
-first-parent-only count.
+first-parent-only count. This is a characterization of unsupported history,
+not an endorsement of divergence or merge-based integration.
 +
 link:https://github.com/vayshya/mill/blob/fork-versioning/libs/util/test/src/mill/util/VcsVersionGitTests.scala[CV-11 test]
 
@@ -148,6 +149,20 @@ The calculated state must use `1.4.0-M2` and count only the two fork-only
 commits.
 +
 link:https://github.com/vayshya/mill/blob/fork-versioning/libs/util/test/src/mill/util/VcsVersionGitTests.scala[CV-13 test]
+
+=== Supported branch workflow
+
+Merge-based integration is not supported by the fork-versioning model.
+All development branches and forks must be rebased onto their original
+(upstream) branches; changes from an original branch must be incorporated
+with `git rebase`, not by merging that branch into the fork.
+
+The versioning requirements and regression tests assume this linearized
+workflow: the fork's history is based on the latest applicable commit of
+its original branch, followed only by the fork's own commits. Divergent
+histories and merge-based integration are outside the supported workflow.
+CV-11 remains solely a characterization of how the current Git commands
+behave on such an unsupported graph.
 
 === Scope and constraints
 
