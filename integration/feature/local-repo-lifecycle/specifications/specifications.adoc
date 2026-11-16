@@ -1,0 +1,46 @@
+= Local Repository Lifecycle
+
+== Overview
+
+The Local Repository Lifecycle feature defines how Mill manages the generated local artifact repository exposed as `dist.raw.localRepo` while the Mill daemon and Zinc workers are running.
+
+The repository is a temporary, generated artifact store used by Mill. Its lifecycle must be compatible with operating systems that prevent deletion of files while a process still has them open, particularly Windows.
+
+This feature is concerned with the complete lifecycle rather than repository selection:
+
+. Mill resolves artifacts from the generated local repository.
+. The daemon and Zinc workers finish using repository artifacts and release file handles.
+. The clean operation physically removes the repository directory.
+. Where supported by the launcher path, Mill recreates and repopulates the repository.
+. The already-running daemon and workers remain usable throughout the lifecycle.
+
+== Relationship to other features
+
+* `mill-repositories` defines which artifact repositories Mill uses to resolve dependencies.
+* `local-repo-lifecycle` defines how Mill's generated local repository is used, released, cleaned, deleted, and recreated.
+
+These features are related but have different responsibilities. A repository configuration test must not be used as a substitute for lifecycle and file-handle regression coverage.
+
+== Lifecycle guarantees
+
+The requirements are defined in link:requirements.adoc[Local Repository Lifecycle Requirements].
+
+The key guarantees are:
+
+* Repository JARs are not left open by the daemon or Zinc workers after resolution has completed.
+* Cleaning `dist.raw.localRepo` physically removes the directory without requiring the daemon or workers to terminate.
+* The bootstrap-launcher path can recreate a populated repository after clean and continue using the existing daemon.
+* The raw-launcher regression checks handle release and physical deletion independently of the unrelated post-clean daemon SNAPSHOT resolution path.
+
+== Verification
+
+The Windows file-handle regression is implemented by link:../../../../scripts/test-windows-localrepo-lock.ps1[the Windows local repository lock test].
+
+The test distinguishes bootstrap and raw launcher scenarios. The bootstrap scenario includes clean, rebuild, and daemon reuse. The raw-launcher scenario verifies file-handle release and physical deletion; its post-clean rebuild is deliberately excluded because that would also test a separate SNAPSHOT resolution path.
+
+== Out of scope
+
+* Choosing or configuring remote and local dependency repositories.
+* General dependency resolution behavior covered by the `mill-repositories` feature.
+* Tag-related `dist.test` behavior.
+* Raw-launcher post-clean daemon SNAPSHOT resolution.
