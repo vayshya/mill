@@ -74,7 +74,7 @@ function Start-RepositoryConsumer([string] $JarPath) {
     if (Test-Path -LiteralPath $consumerOutput) { Remove-Item -LiteralPath $consumerOutput -Force }
     if (Test-Path -LiteralPath $consumerError) { Remove-Item -LiteralPath $consumerError -Force }
     $java = (Get-Command java -ErrorAction Stop).Source
-    Start-Process -FilePath $java -ArgumentList @('-cp', $helperClasses, 'RepositoryConsumer', $JarPath, $releaseFile, $consumerOutput) -RedirectStandardOutput $consumerOutput -RedirectStandardError $consumerError -PassThru -NoNewWindow
+    Start-Process -FilePath $java -ArgumentList @('-cp', $helperClasses, 'RepositoryConsumer', $JarPath, $releaseFile, $consumerOutput) -RedirectStandardError $consumerError -PassThru -NoNewWindow
 }
 
 New-Item -ItemType Directory -Force -Path $workDir | Out-Null
@@ -105,7 +105,7 @@ try {
 
     $publisherOutput = Join-Path $workDir 'publisher.out'
     $publisherError = Join-Path $workDir 'publisher.err'
-    $publisher = Start-Process -FilePath $bootstrapMill -ArgumentList @('show', 'dist.raw.localRepo') -RedirectStandardOutput $publisherOutput -RedirectStandardError $publisherError -PassThru -NoNewWindow
+    $publisher = Start-Process -FilePath $bootstrapMill -ArgumentList @('clean', 'dist.raw.localRepo', '+', 'show', 'dist.raw.localRepo') -RedirectStandardOutput $publisherOutput -RedirectStandardError $publisherError -PassThru -NoNewWindow
     $publisher.WaitForExit()
     if ($publisher.ExitCode -ne 0) {
         throw "Concurrent repository publication failed with exit code $($publisher.ExitCode). stderr: $(Get-Content -LiteralPath $publisherError -Raw)"
