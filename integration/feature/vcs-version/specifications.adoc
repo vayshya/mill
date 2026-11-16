@@ -19,7 +19,7 @@ statements of the desired corrected behavior.
 When HEAD is exactly tagged, `git describe --exact-match --tags --always HEAD`
 provides the tag. The calculated commit count is zero.
 +
-link:https://github.com/vayshya/mill/blob/fork-versioning/libs/util/test/src/mill/util/VcsVersionGitTests.scala#L30-L38[CV-01 test]
+link:https://github.com/vayshya/mill/blob/fork-versioning/libs/util/test/src/mill/util/VcsVersionGitTests.scala[CV-01 test]
 
 * CV-02 — HEAD after a reachable tag
 +
@@ -27,28 +27,28 @@ When HEAD is not exactly tagged, the implementation selects a tag using
 `git describe --abbrev=0 --tags`. It then counts commits reachable from HEAD
 but not reachable from that tag using `git rev-list HEAD --not <tag> --count`.
 +
-link:https://github.com/vayshya/mill/blob/fork-versioning/libs/util/test/src/mill/util/VcsVersionGitTests.scala#L40-L50[CV-02 test]
+link:https://github.com/vayshya/mill/blob/fork-versioning/libs/util/test/src/mill/util/VcsVersionGitTests.scala[CV-02 test]
 
 * CV-03 — No reachable tags
 +
 When no tag can be described, `lastTag` is empty and the commit count is the
 number of commits reachable from HEAD.
 +
-link:https://github.com/vayshya/mill/blob/fork-versioning/libs/util/test/src/mill/util/VcsVersionGitTests.scala#L52-L61[CV-03 test]
+link:https://github.com/vayshya/mill/blob/fork-versioning/libs/util/test/src/mill/util/VcsVersionGitTests.scala[CV-03 test]
 
 * CV-04 — Tag selection
 +
 Tag selection is delegated to Git's `git describe` behavior. It is not based
 on commit timestamps or on a separately computed upstream release baseline.
 +
-link:https://github.com/vayshya/mill/blob/fork-versioning/libs/util/test/src/mill/util/VcsVersionGitTests.scala#L63-L77[CV-04 test]
+link:https://github.com/vayshya/mill/blob/fork-versioning/libs/util/test/src/mill/util/VcsVersionGitTests.scala[CV-04 test]
 
 * CV-05 — Dirty working tree
 +
 The dirty hash is derived from the textual output of `git diff HEAD`.
 An empty diff produces no dirty hash.
 +
-link:https://github.com/vayshya/mill/blob/fork-versioning/libs/util/test/src/mill/util/VcsVersionGitTests.scala#L79-L92[CV-05 test]
+link:https://github.com/vayshya/mill/blob/fork-versioning/libs/util/test/src/mill/util/VcsVersionGitTests.scala[CV-05 test]
 
 * CV-06 — No Git repository
 +
@@ -56,22 +56,26 @@ If resolving HEAD fails because the directory is not a Git repository, the
 returned state has revision `no-vcs`, no tag, zero commits, no dirty hash,
 and no VCS marker.
 +
-link:https://github.com/vayshya/mill/blob/fork-versioning/libs/util/test/src/mill/util/VcsVersionGitTests.scala#L94-L103[CV-06 test]
+link:https://github.com/vayshya/mill/blob/fork-versioning/libs/util/test/src/mill/util/VcsVersionGitTests.scala[CV-06 test]
 
 * CV-07 — Mill version fallback
 +
-The top-level `millVersion` task returns `SNAPSHOT` when
-`VcsVersion.calcVcsState` returns no tag. This fallback is separate from
-`VcsVersion.State.format`, which can format an untagged state.
+The `VcsVersion.formatMillVersion` policy used by the top-level
+`millVersion` task returns `SNAPSHOT` when the calculated state has no tag.
+This fallback is separate from `VcsVersion.State.format`, which can format
+an untagged state. The unit test exercises the formatting policy directly,
+not the build task itself.
 +
-link:https://github.com/vayshya/mill/blob/fork-versioning/libs/util/test/src/mill/util/VcsVersionTests.scala#L23-L26[CV-07 test]
+link:https://github.com/vayshya/mill/blob/fork-versioning/libs/util/test/src/mill/util/VcsVersionTests.scala[CV-07 test]
 
 * CV-08 — CI dirty-state handling
 +
-When `CI` is present in the environment, `millVersion` formats the state
-after clearing `dirtyHash`. Outside CI, the dirty hash is retained.
+When the `millVersion` formatting policy is given `isCi = true`, it clears
+`dirtyHash` before formatting. Outside CI, the dirty hash is retained.
+The unit test exercises this policy directly, not environment detection in
+the build task.
 +
-link:https://github.com/vayshya/mill/blob/fork-versioning/libs/util/test/src/mill/util/VcsVersionTests.scala#L28-L32[CV-08 test]
+link:https://github.com/vayshya/mill/blob/fork-versioning/libs/util/test/src/mill/util/VcsVersionTests.scala[CV-08 test]
 
 === Reproduction scenarios
 
@@ -80,7 +84,7 @@ the upstream-versus-fork counting issue observable. The synthetic Git
 histories must be created in temporary local repositories; tests must not
 depend on network access or the live Mill repository.
 
-* CV-09 — Upstream commits after the release tag are included in the count
+* CV-09 — Commits on the fork branch after the release tag include the upstream baseline
 +
 Create a linear history:
 +
@@ -90,21 +94,21 @@ A --- B --- C --- D --- E --- F --- G
           tag                  HEAD
 ----
 +
-Let C carry tag `1.4.0-M2`, let D and E be upstream commits, and let F and G
-be fork-only commits. With all commits reachable and no other tags, the
-current implementation reports `lastTag = Some("1.4.0-M2")` and
-`commitsSinceLastTag = 4`. Thus D and E are included in the count.
+Let C carry tag `1.4.0-M2`. The `upstream` branch advances through D and E;
+the `fork` branch then starts at E and adds F and G. With no other tags,
+the current implementation reports `lastTag = Some("1.4.0-M2")` and
+`commitsSinceLastTag = 4`, counting both upstream and fork commits.
 +
-link:https://github.com/vayshya/mill/blob/fork-versioning/libs/util/test/src/mill/util/VcsVersionGitTests.scala#L105-L119[CV-09 test]
+link:https://github.com/vayshya/mill/blob/fork-versioning/libs/util/test/src/mill/util/VcsVersionGitTests.scala[CV-09 test]
 
 * CV-10 — Fork checkout without available tags
 +
-Create a repository containing the history above but with no tags available
-to the checkout. The VCS state has no last tag and counts all commits
-reachable from HEAD. The top-level `millVersion` fallback returns
-`SNAPSHOT`.
+Create a repository with seven commits and no tags in the repository or on
+its remote. The checkout has no reachable tags, so the VCS state has no last
+tag and counts all seven commits. The `millVersion` formatting policy
+returns `SNAPSHOT`.
 +
-link:https://github.com/vayshya/mill/blob/fork-versioning/libs/util/test/src/mill/util/VcsVersionGitTests.scala#L121-L146[CV-10 test]
+link:https://github.com/vayshya/mill/blob/fork-versioning/libs/util/test/src/mill/util/VcsVersionGitTests.scala[CV-10 test]
 
 * CV-11 — Divergent histories (characterization)
 +
@@ -152,6 +156,18 @@ The calculated state must use `1.4.0-M2` and count only the two fork-only
 commits.
 +
 link:https://github.com/vayshya/mill/blob/fork-versioning/libs/util/test/src/mill/util/VcsVersionGitTests.scala[CV-13 test]
+
+=== Open design decision
+
+* Merge commit accounting
++
+CV-14 characterizes the current implementation: in the constructed graph it
+selects `upstream-release` and counts three commits not reachable from that
+tag — the fork-side commit before the merge, the merge commit itself, and
+the fork-side commit after the merge. The desired regression behavior is not
+yet specified for this topology. In particular, the feature must decide
+whether a merge commit that brings upstream history into the fork counts as
+a fork commit, or whether only non-merge fork commits count.
 
 === Scope and constraints
 
