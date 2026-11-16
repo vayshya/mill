@@ -63,11 +63,11 @@ object CoursierClient {
     val cacheKey =
       s"${BuildInfo.millVersion} local-artifacts-cached-v1 ${overridesRepos.reverse.mkString("|")}|${millRepositories0.mkString("|")}"
 
-    cached[Seq[os.Path]](
-      cacheFile = cacheDir(outDir) / "mill-daemon-classpath",
-      cacheKey = cacheKey,
-      validate = paths => paths.forall(os.exists(_))
-    ) {
+    val hasLocalRepositories = (overridesRepos ++ millRepositories0).exists { repo =>
+      repo.startsWith("file:") || repo == "ivy2Local"
+    }
+
+    def resolveClasspath(): Seq[os.Path] = {
       val coursierCache0 = FileCache.create[Task]().copy(
         logger = coursier.cache.loggers.RefreshLogger.create(),
         // The daemon outlives this launcher invocation. Never leave its runner
@@ -101,6 +101,18 @@ object CoursierClient {
       }
 
       artifactsResultOrError.artifacts.map(_._2.toString).toSeq.map(os.Path(_))
+    }
+
+    if (hasLocalRepositories) {
+      // A cached classpath would keep serving old SNAPSHOT copies after the local
+      // repository is republished. Let Coursier revalidate local files on each launch.
+      resolveClasspath()
+    } else {
+      cached[Seq[os.Path]](
+        cacheFile = cacheDir(outDir) / "mill-daemon-classpath",
+        cacheKey = cacheKey,
+        validate = paths => paths.forall(os.exists(_))
+      )(resolveClasspath())
     }
   }
 
