@@ -43,11 +43,15 @@ The key guarantees are:
 
 == Verification
 
-The cross-platform file-handle regression is implemented by link:test-local-repository-lock.ps1[the local repository lock test].
+The cross-platform lock and deletion regression for `LRL-TAR-01`, `LRL-TAR-02`, and `LRL-TAR-06` is implemented by link:test-local-repository-lock.ps1[the local repository lock test].
+
+The bootstrap creation and rebuild regression for `LRL-TAR-03` and `LRL-TAR-05` is implemented by link:test-local-repository-rebuild.ps1[the local repository rebuild test].
+
+The raw-launcher isolation regression for `LRL-TAR-04` and `LRL-TAR-08` is implemented by link:test-local-repository-raw-launcher.ps1[the raw launcher lifecycle test].
 
 The concurrent-consumer regression for `LRL-TAR-07` is implemented by link:test-local-repository-concurrency.ps1[the concurrent repository consumer test]. It keeps a real repository JAR open in a separate JVM while another Mill client cleans and republishes `dist.raw.localRepo`, then verifies the active consumer's initial state and the completeness of the republished repository.
 
-The test distinguishes bootstrap and raw launcher scenarios. The bootstrap scenario includes clean, rebuild, and daemon reuse. The raw-launcher scenario verifies file-handle release and physical deletion; its post-clean rebuild is deliberately excluded because that would also test a separate SNAPSHOT resolution path.
+The tests distinguish the independent lifecycle responsibilities. The lock test covers open handles, clean deletion, and lock diagnostics; the rebuild test covers creation, population, clean, rebuild, and daemon reuse; the raw-launcher test covers raw-daemon classpath isolation and clean deletion without asserting post-clean rebuild; and the concurrency test covers publication isolation.
 
 
 == Characterization
@@ -140,7 +144,7 @@ Verification:
 * Verify that the repository directory is created and contains the expected artifacts.
 * Invoke the task again and verify that it succeeds while reusing the existing daemon.
 
-The cross-platform lifecycle regression script is the integration-test location for this scenario; its initial-resolution checks must assert repository existence and contents, not only successful task exit.
+The focused bootstrap rebuild script is the integration-test location for this scenario; its initial-resolution checks assert repository existence and contents, not only successful task exit.
 
 === LRL-TAR-06 — Lock diagnostics must identify processes holding repository files
 
@@ -152,7 +156,7 @@ Verification:
 * Verify that the failure output identifies the file and locking process identifiers.
 * Verify that available process details are included and that unavailable supplemental details are reported without suppressing the lock failure.
 
-The cross-platform file-handle regression script already contains platform-specific lock probes and process-detail formatting; the assertions and failure output must continue to satisfy this requirement.
+The focused local repository lock script contains platform-specific lock probes and process-detail formatting; the assertions and failure output must continue to satisfy this requirement.
 
 === LRL-TAR-07 — Concurrent repository updates must preserve the state observed by active consumers
 
