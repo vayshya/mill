@@ -209,14 +209,14 @@ remains empty and all seven commits are counted.
 
 link:https://github.com/vayshya/mill/blob/fork-versioning/libs/util/test/src/mill/util/VcsVersionGitTests.scala[VCSV-CHAR-13 characterization test]
 
-=== Target requirements (TARGET, desired behavior)
+=== Target requirements (TAR, desired behavior)
 
 These requirements describe the intended fork-versioning behavior. They are
 deliberately separate from the characterization cases above. They specify
 the target behavior; they are not characterization requirements and are not
 to be added to the characterization test suite.
 
-* VCSV-TARGET-01 — Exclude upstream commits after rebasing the fork
+* VCSV-TAR-01 — Exclude upstream commits after rebasing the fork
 +
 Create a fork branch from release-tagged commit C and add fork commits F and
 G. Advance the original `upstream` branch from C with commits D and E, then
@@ -229,7 +229,7 @@ Characterization requirement VCSV-CHAR-12 and its test record the current behavi
 all four commits after the tag are counted. An acceptance test must verify
 the target behavior specified above after the implementation is changed.
 
-* VCSV-TARGET-02 — Use an upstream release tag when the checkout has no local tags
+* VCSV-TAR-02 — Use an upstream release tag when the checkout has no local tags
 +
 Create a local bare upstream repository containing release tag
 `1.4.0-M2` and commits after it. Clone it with `--no-tags`, configure the
