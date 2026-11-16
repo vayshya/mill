@@ -24,7 +24,9 @@ object VcsVersionGitTests extends TestSuite {
   }
 
   private def state(repo: os.Path): VcsVersion.State =
-    VcsVersion.calcVcsState(Logger.DummyLogger, repo)
+    new VcsVersion {
+      override def vcsBasePath: os.Path = repo
+    }.calcVcsState(Logger.DummyLogger)
 
   val tests: Tests = Tests {
     test("CV-01 exact tag at HEAD") {
