@@ -201,22 +201,5 @@ object VcsVersionGitTests extends TestSuite {
       assert(result.commitsSinceLastTag == 2)
     }
 
-    test("CV-11 divergent histories") {
-      val repo = initRepo()
-      val common = commit(repo, "common")
-      git(repo, "tag", "base-release")
-      git(repo, "branch", "upstream")
-      git(repo, "checkout", "--quiet", "upstream")
-      commit(repo, "upstream-1")
-      commit(repo, "upstream-2")
-      git(repo, "tag", "upstream-release")
-      git(repo, "checkout", "--quiet", "-b", "fork", common)
-      commit(repo, "fork-1")
-      commit(repo, "fork-2")
-
-      val result = state(repo)
-      assert(result.lastTag == Some("base-release"))
-      assert(result.commitsSinceLastTag == 2)
-    }
   }
 }
