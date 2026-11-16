@@ -12,7 +12,7 @@ if (-not (Test-Path -LiteralPath $bootstrapMill -PathType Leaf)) { throw "Bootst
 
 function Write-LocalRepoLockDiagnostics([string] $Scenario) {
     if (-not (Test-Path -LiteralPath $localRepo -PathType Container)) { return }
-    Write-Host "Lock diagnostics for $Scenario:"
+    Write-Host "Lock diagnostics for ${Scenario}:"
     $files = @(Get-ChildItem -LiteralPath $localRepo -File -Recurse | Select-Object -First 20)
     $reported = 0
     foreach ($file in $files) {
