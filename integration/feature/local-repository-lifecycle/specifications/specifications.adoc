@@ -92,10 +92,3 @@ Verification:
 * Selection and configuration of artifact sources belong to `mill-repositories`.
 * External repository configuration and resolution of daemon SNAPSHOT artifacts after raw-repository deletion are not part of the raw-launcher handle regression.
 * Tag-related `dist.test` behavior is tracked separately.
-
-== Scope boundaries
-
-* This feature covers the lifecycle of the generated local repository: use, release of file handles, cleanup, physical deletion, and supported recreation.
-* Selection and configuration of artifact sources belong to `mill-repositories`.
-* External repository configuration and resolution of daemon SNAPSHOT artifacts after raw-repository deletion are not part of the raw-launcher handle regression.
-* Tag-related `dist.test` behavior is tracked separately.
