@@ -148,7 +148,7 @@ object VcsVersionGitTests extends TestSuite {
       assert(result.commitsSinceLastTag == 4)
     }
 
-    test("CV-12 characterization: rebase includes upstream commits in the count") {
+    test("CV-12 rebase includes upstream commits in the count") {
       val repo = initRepo()
       commit(repo, "A")
       commit(repo, "B")
@@ -197,7 +197,7 @@ object VcsVersionGitTests extends TestSuite {
       assert(result.commitsSinceLastTag == 7)
     }
 
-    test("CV-13 characterization: an upstream tag is unavailable when not fetched locally") {
+    test("CV-13 upstream tag is unavailable when not fetched locally") {
       val parent = os.temp.dir()
       val upstream = initRepo()
       commit(upstream, "A")
