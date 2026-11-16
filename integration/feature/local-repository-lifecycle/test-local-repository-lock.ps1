@@ -228,7 +228,7 @@ function Stop-MillProcesses([string] $Launcher, [string] $Phase) {
     } while ([DateTime]::UtcNow -lt $deadline)
 
     if ($remaining.Count -gt 0) {
-        throw "Mill processes did not exit after $Phase / shutdown: $($remaining | ForEach-Object { "$($_.Kind):$($_.Id)" } -join ', ')."
+        throw "Mill processes did not exit after $Phase / shutdown: $((@($remaining | ForEach-Object { "$($_.Kind):$($_.Id)" })) -join ', ')."
     }
     Write-Host "PASS: daemon and workers exited after $Phase / shutdown; the next launcher scenario starts cleanly."
 }
@@ -268,8 +268,8 @@ try {
     if ($buildCode -ne 0) { throw 'Cannot run launcher matrix because dist.raw.executable did not build.' }
     if (-not (Test-Path -LiteralPath $rawMill -PathType Leaf)) { throw "Raw launcher not found: $rawMill" }
     foreach ($entry in @(
-        # Run the isolated bootstrap lifecycle first so a raw-launcher daemon
-        # cannot affect the bootstrap baseline.
+        # Run bootstrap first; Stop-MillProcesses below shuts down its daemon and
+        # workers before the raw-launcher scenario uses the shared output tree.
         @{ Launcher = $bootstrapMill; Label = 'bootstrap launcher'; VerifyRebuildAfterClean = $true },
         # The raw launcher's post-clean rebuild may resolve the daemon SNAPSHOT
         # from external repositories after localRepo has intentionally been removed.
