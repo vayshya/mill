@@ -130,3 +130,13 @@ Verification:
 * Start a new consumer after publication and verify that it observes the complete updated state.
 * Verify that files belonging to the initial state are not removed while the original consumer still depends on them, and can be reclaimed after that consumer finishes.
 
+=== LRL-008 — Raw daemon runtime classpath must not depend on the deletable local repository
+
+The raw launcher must not start its long-lived Mill daemon with runtime classpath entries located inside `dist.raw.localRepo`. The daemon outlives the launcher invocation, so any runner artifact loaded directly from that generated repository can remain open and prevent the repository from being cleaned on Windows. Local SNAPSHOT artifacts must be resolved into a stable location outside the generated repository before they are placed on the daemon runtime classpath. Re-resolution on a later daemon start must still observe a newly published local SNAPSHOT.
+
+Verification:
+* Build the raw launcher, then shut down the daemon and workers used to build it.
+* Start a fresh daemon through the raw launcher with a command that does not evaluate `dist.raw.localRepo`.
+* Inspect the daemon JVM command line and verify that its runtime classpath does not contain a path below `dist.raw.localRepo`.
+* Verify that the same daemon can then evaluate `dist.raw.localRepo` and clean it while remaining alive.
+* Republish a distinguishable local SNAPSHOT, start a new daemon, and verify that the new daemon resolves the updated artifact while the previous daemon's classpath remains stable.
