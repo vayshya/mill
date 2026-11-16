@@ -2,4 +2,103 @@
 
 == Requirements
 
-* link:requirements.adoc[VCS Versioning requirements]
+This document records the current behavior of Mill's Git-based version
+calculation and the cases that expose the fork-versioning problem.
+
+The implementation under characterization is `mill.util.VcsVersion`
+(`libs/util/src/mill/util/VcsVersion.scala`) and its use by
+`millVersion` / `millLastTag` in `build.mill`.
+
+=== Current behavior (characterization)
+
+These requirements describe the existing implementation. They are not
+statements of the desired corrected behavior.
+
+* CV-01 — Exact tag at HEAD
++
+When HEAD is exactly tagged, `git describe --exact-match --tags --always HEAD`
+provides the tag. The calculated commit count is zero.
+
+* CV-02 — HEAD after a reachable tag
++
+When HEAD is not exactly tagged, the implementation selects a tag using
+`git describe --abbrev=0 --tags`. It then counts commits reachable from HEAD
+but not reachable from that tag using `git rev-list HEAD --not <tag> --count`.
+
+* CV-03 — No reachable tags
++
+When no tag can be described, `lastTag` is empty and the commit count is the
+number of commits reachable from HEAD.
+
+* CV-04 — Tag selection
++
+Tag selection is delegated to Git's `git describe` behavior. It is not based
+on commit timestamps or on a separately computed upstream release baseline.
+
+* CV-05 — Dirty working tree
++
+The dirty hash is derived from the textual output of `git diff HEAD`.
+An empty diff produces no dirty hash.
+
+* CV-06 — No Git repository
++
+If resolving HEAD fails because the directory is not a Git repository, the
+returned state has revision `no-vcs`, no tag, zero commits, no dirty hash,
+and no VCS marker.
+
+* CV-07 — Mill version fallback
++
+The top-level `millVersion` task returns `SNAPSHOT` when
+`VcsVersion.calcVcsState` returns no tag. This fallback is separate from
+`VcsVersion.State.format`, which can format an untagged state.
+
+* CV-08 — CI dirty-state handling
++
+When `CI` is present in the environment, `millVersion` formats the state
+after clearing `dirtyHash`. Outside CI, the dirty hash is retained.
+
+=== Reproduction scenarios
+
+The following scenarios characterize the current implementation and make
+the upstream-versus-fork counting issue observable. The synthetic Git
+histories must be created in temporary local repositories; tests must not
+depend on network access or the live Mill repository.
+
+* CV-09 — Upstream commits after the release tag are included in the count
++
+Create a linear history:
++
+[source,text]
+----
+A --- B --- C --- D --- E --- F --- G
+          tag                  HEAD
+----
++
+Let C carry tag `1.4.0-M2`, let D and E be upstream commits, and let F and G
+be fork-only commits. With all commits reachable and no other tags, the
+current implementation reports `lastTag = Some("1.4.0-M2")` and
+`commitsSinceLastTag = 4`. Thus D and E are included in the count.
+
+* CV-10 — Fork checkout without available tags
++
+Create a repository containing the history above but with no tags available
+to the checkout. The VCS state has no last tag and counts all commits
+reachable from HEAD. The top-level `millVersion` fallback returns
+`SNAPSHOT`.
+
+* CV-11 — Divergent histories
++
+Create a graph in which upstream and fork branches diverge from a common
+ancestor, and characterize the selected tag and count returned by the
+existing `git describe` / `git rev-list` commands. The expected values must
+be asserted from the constructed graph rather than inferred from a
+first-parent-only count.
+
+=== Scope and constraints
+
+* These tests characterize the current behavior; they must not silently
+  encode the proposed corrected versioning algorithm as current behavior.
+* Regression requirements for the corrected algorithm must be specified
+  separately after the current behavior is captured.
+* Tests should use temporary repositories and local refs only.
+* Do not run GitHub Actions or CI as part of adding this specification.
