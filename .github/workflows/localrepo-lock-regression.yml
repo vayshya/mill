@@ -1,4 +1,4 @@
-name: Local Repo File Lock Regression
+name: Local Repo Open Handle Regression
 on:
   push:
     branches:
@@ -8,16 +8,24 @@ on:
 permissions:
   contents: read
 jobs:
-  local-repo-lock:
-    name: Local repo lock (Windows)
-    runs-on: windows-latest
-    timeout-minutes: 45
+  local-repo-open-handles:
+    name: Local repo open handles (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
         with:
           distribution: zulu
           java-version: '25'
-      - name: Reproduce raw launcher local repository lock
+      - name: Install lsof on Linux
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y lsof
+        shell: bash
+      - name: Check all launcher and lifecycle variants
         run: pwsh -NoProfile -File scripts/test-windows-localrepo-lock.ps1
         shell: pwsh
