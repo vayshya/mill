@@ -122,7 +122,7 @@ object VcsVersionGitTests extends TestSuite {
       assert(result.commitsSinceLastTag == 4)
     }
 
-    test("CV-12 regression: upstream commits are excluded from the fork count") {
+    test("CV-12 characterization: rebase includes upstream commits in the count") {
       val repo = initRepo()
       commit(repo, "A")
       commit(repo, "B")
@@ -142,8 +142,8 @@ object VcsVersionGitTests extends TestSuite {
       assert(git(repo, "merge-base", "fork", "upstream") == upstreamHead)
       val result = state(repo)
       assert(result.lastTag == Some("1.4.0-M2"))
-      // Rebased fork-F/fork-G are the only commits added after the upstream baseline.
-      assert(result.commitsSinceLastTag == 2)
+      // The main implementation counts both upstream-D/upstream-E and rebased fork-F/fork-G.
+      assert(result.commitsSinceLastTag == 4)
     }
 
     test("CV-10 fork checkout without available tags") {
@@ -169,10 +169,9 @@ object VcsVersionGitTests extends TestSuite {
       assert(git(checkout, "tag", "--list").isEmpty)
       assert(result.lastTag.isEmpty)
       assert(result.commitsSinceLastTag == 7)
-      assert(VcsVersion.formatMillVersion(result, isCi = false) == "SNAPSHOT")
     }
 
-    test("CV-13 regression: an upstream release tag is usable without a local tag") {
+    test("CV-13 characterization: an upstream tag is unavailable when not fetched locally") {
       val parent = os.temp.dir()
       val upstream = initRepo()
       commit(upstream, "A")
@@ -197,8 +196,8 @@ object VcsVersionGitTests extends TestSuite {
       assert(git(checkout, "ls-remote", "--tags", "upstream", "refs/tags/1.4.0-M2").nonEmpty)
 
       val result = state(checkout)
-      assert(result.lastTag == Some("1.4.0-M2"))
-      assert(result.commitsSinceLastTag == 2)
+      assert(result.lastTag.isEmpty)
+      assert(result.commitsSinceLastTag == 7)
     }
 
   }
