@@ -114,10 +114,12 @@ try {
     # On Windows the raw launcher command itself can return exit code 1 even though its daemon
     # is running; using it for subsequent commands would conflate that launcher failure with clean.
     $rawDaemonIds = @($daemons | ForEach-Object { [int]$_.Id })
-    $compile = Invoke-Mill $bootstrapMill @('__.compile') 'bootstrap client compile to start Zinc workers'
-    if ($compile.ExitCode -ne 0) { throw "Could not start Zinc workers through the existing daemon; exit code $($compile.ExitCode)." }
+    # Keep using the raw launcher as the client so this observation cannot silently
+    # switch to a bootstrap daemon with a different launcher/runtime classpath.
+    $compile = Invoke-Mill $rawMill @('__.compile') 'raw client compile to start Zinc workers'
+    Write-Host "Raw compile client exit code: $($compile.ExitCode) (processes are inspected independently)."
     $stillRawDaemons = @(Get-MillProcesses | Where-Object { $_.Kind -eq 'daemon' -and $_.Id -in $rawDaemonIds })
-    if ($stillRawDaemons.Count -eq 0) { throw 'The raw-launched daemon was replaced before the worker/clean observation.' }
+    if ($stillRawDaemons.Count -eq 0) { throw 'The raw-launched daemon exited or was replaced before the worker/clean observation.' }
     $processes = @(Get-MillProcesses)
     $daemons = @($processes | Where-Object Kind -eq 'daemon')
     $workers = @($processes | Where-Object Kind -eq 'worker')
