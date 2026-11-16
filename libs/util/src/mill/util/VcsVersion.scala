@@ -87,13 +87,6 @@ object VcsVersion extends ExternalModule with VcsVersion {
     implicit val jsonify: upickle.ReadWriter[State] = upickle.macroRW
   }
 
-
-  /** Apply the top-level Mill version fallback and CI dirty-state policy. */
-  def formatMillVersion(state: State, isCi: Boolean): String =
-    if (state.lastTag.isEmpty) "SNAPSHOT"
-    else if (isCi) state.copy(dirtyHash = None).format()
-    else state.format()
-
   lazy val millDiscover = Discover[this.type]
 }
 
@@ -131,19 +124,18 @@ trait VcsVersion extends Module {
   }
 
   def calcVcsState(logger: Logger): VcsVersion.State = {
-    val basePath = vcsBasePath
     val curHeadRaw =
       try {
         Option(
           os.call(
             cmd = ("git", "rev-parse", "HEAD"),
-            cwd = basePath,
+            cwd = vcsBasePath,
             stderr = os.Pipe
           ).out.trim()
         )
       } catch {
         case _: SubprocessException =>
-          logger.error(s"${basePath} is not a git repository.")
+          logger.error(s"${vcsBasePath} is not a git repository.")
           None
       }
 
@@ -160,7 +152,7 @@ trait VcsVersion extends Module {
               .map(curHead =>
                 os.call(
                   cmd = ("git", "describe", "--exact-match", "--tags", "--always", curHead),
-                  cwd = basePath,
+                  cwd = vcsBasePath,
                   stderr = os.Pipe
                 ).out.trim()
               )
@@ -174,7 +166,7 @@ trait VcsVersion extends Module {
             Option(
               os.call(
                 ("git", "describe", "--abbrev=0", "--tags"),
-                cwd = basePath,
+                cwd = vcsBasePath,
                 stderr = os.Pipe
               ).out.trim()
             )
@@ -200,7 +192,7 @@ trait VcsVersion extends Module {
                     },
                     "--count"
                   ),
-                  cwd = basePath,
+                  cwd = vcsBasePath,
                   stderr = os.Pipe
                 ).out.trim().toInt
               }
@@ -210,7 +202,7 @@ trait VcsVersion extends Module {
         val dirtyHashCode: Option[String] =
           Option(os.call(
             cmd = ("git", "diff", "HEAD"),
-            cwd = basePath,
+            cwd = vcsBasePath,
             stderr = os.Pipe
           ).out.trim()).flatMap {
             case "" => None
