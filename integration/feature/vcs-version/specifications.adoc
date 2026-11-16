@@ -14,57 +14,57 @@ The implementation under characterization is `mill.util.VcsVersion`
 These requirements describe the existing implementation. They are not
 statements of the desired corrected behavior.
 
-* VER-CV-01 — Exact tag at HEAD
+* VCSV-CV-01 — Exact tag at HEAD
 +
 When HEAD is exactly tagged, `git describe --exact-match --tags --always HEAD`
 provides the tag. The calculated commit count is zero.
 +
-link:https://github.com/vayshya/mill/blob/fork-versioning/libs/util/test/src/mill/util/VcsVersionGitTests.scala[VER-CV-01 test]
+link:https://github.com/vayshya/mill/blob/fork-versioning/libs/util/test/src/mill/util/VcsVersionGitTests.scala[VCSV-CV-01 test]
 
-* VER-CV-02 — HEAD after a reachable tag
+* VCSV-CV-02 — HEAD after a reachable tag
 +
 When HEAD is not exactly tagged, the implementation selects a tag using
 `git describe --abbrev=0 --tags`. It then counts commits reachable from HEAD
 but not reachable from that tag using `git rev-list HEAD --not <tag> --count`.
 +
-link:https://github.com/vayshya/mill/blob/fork-versioning/libs/util/test/src/mill/util/VcsVersionGitTests.scala[VER-CV-02 test]
+link:https://github.com/vayshya/mill/blob/fork-versioning/libs/util/test/src/mill/util/VcsVersionGitTests.scala[VCSV-CV-02 test]
 
-* VER-CV-03 — No reachable tags
+* VCSV-CV-03 — No reachable tags
 +
 When no tag can be described, `lastTag` is empty and the commit count is the
 number of commits reachable from HEAD.
 +
-link:https://github.com/vayshya/mill/blob/fork-versioning/libs/util/test/src/mill/util/VcsVersionGitTests.scala[VER-CV-03 test]
+link:https://github.com/vayshya/mill/blob/fork-versioning/libs/util/test/src/mill/util/VcsVersionGitTests.scala[VCSV-CV-03 test]
 
-* VER-CV-04 — Tag selection
+* VCSV-CV-04 — Tag selection
 +
 Tag selection is delegated to Git's `git describe` behavior. It is not based
 on commit timestamps or on a separately computed upstream release baseline.
 +
-link:https://github.com/vayshya/mill/blob/fork-versioning/libs/util/test/src/mill/util/VcsVersionGitTests.scala[VER-CV-04 test]
+link:https://github.com/vayshya/mill/blob/fork-versioning/libs/util/test/src/mill/util/VcsVersionGitTests.scala[VCSV-CV-04 test]
 
-* VER-CV-05 — Dirty working tree
+* VCSV-CV-05 — Dirty working tree
 +
 The dirty hash is derived from the textual output of `git diff HEAD`.
 An empty diff produces no dirty hash.
 +
-link:https://github.com/vayshya/mill/blob/fork-versioning/libs/util/test/src/mill/util/VcsVersionGitTests.scala[VER-CV-05 test]
+link:https://github.com/vayshya/mill/blob/fork-versioning/libs/util/test/src/mill/util/VcsVersionGitTests.scala[VCSV-CV-05 test]
 
-* VER-CV-06 — No Git repository
+* VCSV-CV-06 — No Git repository
 +
 If resolving HEAD fails because the directory is not a Git repository, the
 returned state has revision `no-vcs`, no tag, zero commits, no dirty hash,
 and no VCS marker.
 +
-link:https://github.com/vayshya/mill/blob/fork-versioning/libs/util/test/src/mill/util/VcsVersionGitTests.scala[VER-CV-06 test]
+link:https://github.com/vayshya/mill/blob/fork-versioning/libs/util/test/src/mill/util/VcsVersionGitTests.scala[VCSV-CV-06 test]
 
-* VER-CV-07 — Mill version fallback
+* VCSV-CV-07 — Mill version fallback
 +
 The top-level `millVersion` task returns `SNAPSHOT` when the calculated
 state has no tag. This fallback is implemented in `build.mill`, not in the
 `VcsVersion` API. It is not covered by the `VcsVersion` unit tests.
 
-* VER-CV-08 — CI dirty-state handling
+* VCSV-CV-08 — CI dirty-state handling
 +
 The top-level `millVersion` task clears `dirtyHash` when the `CI`
 environment variable is present; outside CI, the dirty hash is retained.
@@ -143,7 +143,7 @@ the upstream-versus-fork counting issue observable. The synthetic Git
 histories must be created in temporary local repositories; tests must not
 depend on network access or the live Mill repository.
 
-* VER-CV-09 — Commits on the fork branch after the release tag include the upstream baseline
+* VCSV-CV-09 — Commits on the fork branch after the release tag include the upstream baseline
 +
 Create a linear history:
 +
@@ -158,9 +158,9 @@ the `fork` branch then starts at E and adds F and G. With no other tags,
 the current implementation reports `lastTag = Some("1.4.0-M2")` and
 `commitsSinceLastTag = 4`, counting both upstream and fork commits.
 +
-link:https://github.com/vayshya/mill/blob/fork-versioning/libs/util/test/src/mill/util/VcsVersionGitTests.scala[VER-CV-09 test]
+link:https://github.com/vayshya/mill/blob/fork-versioning/libs/util/test/src/mill/util/VcsVersionGitTests.scala[VCSV-CV-09 test]
 
-* VER-CV-10 — Fork checkout without available tags
+* VCSV-CV-10 — Fork checkout without available tags
 +
 Create a repository with seven commits and no tags in the repository or on
 its remote. The checkout has no reachable tags, so the VCS state has no last
@@ -168,11 +168,11 @@ tag and counts all seven commits. The `millVersion` task's `SNAPSHOT`
 fallback is a separate build-level behavior and is not asserted by this Git
 state test.
 +
-link:https://github.com/vayshya/mill/blob/fork-versioning/libs/util/test/src/mill/util/VcsVersionGitTests.scala[VER-CV-10 test]
+link:https://github.com/vayshya/mill/blob/fork-versioning/libs/util/test/src/mill/util/VcsVersionGitTests.scala[VCSV-CV-10 test]
 
 
 
-* VER-CV-11 — CI checkout fetches history without tags
+* VCSV-CV-11 — CI checkout fetches history without tags
 
 The `test-dist` job in GitHub Actions Run #190 checks out the repository
 with `fetch-depth: 0` and `fetch-tags: false`. A full commit history does
@@ -190,16 +190,16 @@ Observed in
 link:https://github.com/vayshya/mill/actions/runs/43934491530[GitHub Actions Run #190],
 job `test-dist`.
 
-* VER-CV-12 — Rebased fork includes upstream commits in the count
+* VCSV-CV-12 — Rebased fork includes upstream commits in the count
 
 Create a release-tagged base commit, advance the upstream branch by two
 commits, and rebase a fork containing two fork-only commits onto that
 upstream head. The current implementation counts all four commits after
 the release tag, including the two upstream commits.
 
-link:https://github.com/vayshya/mill/blob/fork-versioning/libs/util/test/src/mill/util/VcsVersionGitTests.scala[VER-CV-12 characterization test]
+link:https://github.com/vayshya/mill/blob/fork-versioning/libs/util/test/src/mill/util/VcsVersionGitTests.scala[VCSV-CV-12 characterization test]
 
-* VER-CV-13 — An unfetched upstream tag is not discovered
+* VCSV-CV-13 — An unfetched upstream tag is not discovered
 
 Create a bare upstream repository with a release tag and later commits.
 Clone it with --no-tags, configure the remote as upstream, and add two
@@ -207,7 +207,7 @@ fork-only commits. Although git ls-remote can see the advertised release
 tag, the current implementation does not discover it locally; lastTag
 remains empty and all seven commits are counted.
 
-link:https://github.com/vayshya/mill/blob/fork-versioning/libs/util/test/src/mill/util/VcsVersionGitTests.scala[VER-CV-13 characterization test]
+link:https://github.com/vayshya/mill/blob/fork-versioning/libs/util/test/src/mill/util/VcsVersionGitTests.scala[VCSV-CV-13 characterization test]
 
 === Target requirements (TR, desired behavior)
 
@@ -216,7 +216,7 @@ deliberately separate from the characterization cases above. They specify
 the target behavior; they are not characterization requirements and are not
 to be added to the characterization test suite.
 
-* VER-TR-01 — Exclude upstream commits after rebasing the fork
+* VCSV-TR-01 — Exclude upstream commits after rebasing the fork
 +
 Create a fork branch from release-tagged commit C and add fork commits F and
 G. Advance the original `upstream` branch from C with commits D and E, then
@@ -225,11 +225,11 @@ the `upstream` ref remains at E. The calculated release tag remains
 `1.4.0-M2`, and only the two rebased fork commits count:
 `commitsSinceLastTag = 2`. The test must use an actual `git rebase`.
 +
-Characterization requirement VER-CV-12 and its test record the current behavior:
+Characterization requirement VCSV-CV-12 and its test record the current behavior:
 all four commits after the tag are counted. An acceptance test must verify
 the target behavior specified above after the implementation is changed.
 
-* VER-TR-02 — Use an upstream release tag when the checkout has no local tags
+* VCSV-TR-02 — Use an upstream release tag when the checkout has no local tags
 +
 Create a local bare upstream repository containing release tag
 `1.4.0-M2` and commits after it. Clone it with `--no-tags`, configure the
@@ -238,7 +238,7 @@ no local tags while the upstream remote still advertises the release tag.
 The calculated state must use `1.4.0-M2` and count only the two fork-only
 commits.
 +
-Characterization requirement VER-CV-13 and its test record the current behavior:
+Characterization requirement VCSV-CV-13 and its test record the current behavior:
 the unfetched remote tag is not discovered, and all seven commits are
 counted. An acceptance test must verify the target behavior specified above
 after the implementation is changed.
