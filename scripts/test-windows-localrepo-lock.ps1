@@ -1,11 +1,13 @@
-# Cross-platform regression test: ensure Mill does not keep the local-repository SNAPSHOT JAR open.
+# Regression test: reproduce the raw distribution launcher loading Mill from its own local repository.
 $ErrorActionPreference = 'Stop'
 $isWindowsPlatform = $IsWindows -or $env:OS -eq 'Windows_NT'
 $launcherName = if ($isWindowsPlatform) { 'mill.bat' } else { 'mill' }
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
-$mill = Join-Path $repoRoot $launcherName
+$bootstrapMill = Join-Path $repoRoot $launcherName
+$rawMill = Join-Path $repoRoot 'out/dist/raw/executable.dest' $launcherName
+$mill = $bootstrapMill
 $jarPath = [System.IO.Path]::GetFullPath((Join-Path $repoRoot 'out/dist/raw/localRepo.dest/com/lihaoyi/mill-contrib-buildinfo_3/SNAPSHOT/mill-contrib-buildinfo_3-SNAPSHOT.jar'))
-if (-not (Test-Path $mill -PathType Leaf)) { throw "Bootstrap launcher not found: $mill." }
+if (-not (Test-Path $bootstrapMill -PathType Leaf)) { throw "Bootstrap launcher not found: $bootstrapMill." }
 
 function Invoke-MillAndCapture([string[]] $MillArgs) {
     $lines = @(& $mill @MillArgs 2>&1 | ForEach-Object { $_.ToString() })
@@ -129,7 +131,12 @@ function Assert-JarNotOpen([string] $Path, [string] $Phase) {
 }
 Push-Location $repoRoot
 try {
-    Write-Host "Evaluating dist.raw.localRepo with the independent bootstrap launcher on $([System.Runtime.InteropServices.RuntimeInformation]::OSDescription)..."
+    Write-Host "Building dist.raw.executable with the independent bootstrap launcher on $([System.Runtime.InteropServices.RuntimeInformation]::OSDescription)..."
+    $result = Invoke-MillAndCapture @('show', 'dist.raw.executable')
+    if ($result.ExitCode -ne 0) { throw "Failed to build dist.raw.executable (exit code $($result.ExitCode))." }
+    if (-not (Test-Path -LiteralPath $rawMill -PathType Leaf)) { throw "Raw distribution launcher not found: $rawMill." }
+    $mill = $rawMill
+    Write-Host "Reproducing self-hosted repository access with $mill..."
     $result = Invoke-MillAndCapture @('show', 'dist.raw.localRepo')
     if ($result.ExitCode -ne 0) {
         if (Test-LocalRepoLockError $result.Output) {
@@ -165,5 +172,5 @@ try {
         }
         throw "Mill clean failed (exit code $($result.ExitCode))."
     }
-    Write-Host 'PASS: localRepo evaluated and cleaned; no process held the SNAPSHOT JAR open.'
+    Write-Host 'PASS: raw launcher evaluated and cleaned localRepo; no process held the SNAPSHOT JAR open.'
 } finally { Pop-Location }
