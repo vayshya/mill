@@ -8,7 +8,33 @@ on:
 permissions:
   contents: read
 jobs:
+  pwsh-syntax:
+    name: PowerShell parser validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Parse every lifecycle PowerShell script
+        shell: pwsh
+        run: |
+          $files = @(Get-ChildItem -LiteralPath 'integration/feature/local-repository-lifecycle' -Filter '*.ps1' -File -Recurse)
+          if ($files.Count -eq 0) { throw 'No PowerShell scripts found.' }
+          $failed = $false
+          foreach ($file in $files) {
+            $tokens = $null
+            $parseErrors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile($file.FullName, [ref]$tokens, [ref]$parseErrors) | Out-Null
+            if ($parseErrors.Count -gt 0) {
+              $failed = $true
+              foreach ($parseError in $parseErrors) {
+                Write-Error ("{0}:{1}:{2}: {3}" -f $file.FullName, $parseError.Extent.StartLineNumber, $parseError.Extent.StartColumnNumber, $parseError.Message)
+              }
+            } else {
+              Write-Host ("PASS: {0}" -f $file.FullName)
+            }
+          }
+          if ($failed) { throw 'PowerShell parser reported syntax errors.' }
   local-repo-characterization:
+    needs: pwsh-syntax
     name: Local repo characterization (${{ matrix.os }})
     strategy:
       fail-fast: false
@@ -29,6 +55,7 @@ jobs:
         shell: pwsh
 
   local-repo-lock:
+    needs: pwsh-syntax
     name: Local repo lock (${{ matrix.os }})
     strategy:
       fail-fast: false
@@ -53,6 +80,7 @@ jobs:
         shell: pwsh
 
   local-repo-rebuild:
+    needs: pwsh-syntax
     name: Local repo rebuild (${{ matrix.os }})
     strategy:
       fail-fast: false
@@ -73,6 +101,7 @@ jobs:
         shell: pwsh
 
   local-repo-raw-launcher:
+    needs: pwsh-syntax
     name: Local repo raw launcher (${{ matrix.os }})
     strategy:
       fail-fast: false
@@ -97,6 +126,7 @@ jobs:
         shell: pwsh
 
   local-repo-concurrency:
+    needs: pwsh-syntax
     name: Local repo concurrency (${{ matrix.os }})
     strategy:
       fail-fast: false
