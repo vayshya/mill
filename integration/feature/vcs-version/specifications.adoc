@@ -190,6 +190,25 @@ Observed in
 link:https://github.com/vayshya/mill/actions/runs/43934491530[GitHub Actions Run #190],
 job `test-dist`.
 
+* CV-12 — Rebased fork includes upstream commits in the count
+
+Create a release-tagged base commit, advance the upstream branch by two
+commits, and rebase a fork containing two fork-only commits onto that
+upstream head. The current implementation counts all four commits after
+the release tag, including the two upstream commits.
+
+link:https://github.com/vayshya/mill/blob/fork-versioning/libs/util/test/src/mill/util/VcsVersionGitTests.scala[CV-12 characterization test]
+
+* CV-13 — An unfetched upstream tag is not discovered
+
+Create a bare upstream repository with a release tag and later commits.
+Clone it with --no-tags, configure the remote as upstream, and add two
+fork-only commits. Although git ls-remote can see the advertised release
+tag, the current implementation does not discover it locally; lastTag
+remains empty and all seven commits are counted.
+
+link:https://github.com/vayshya/mill/blob/fork-versioning/libs/util/test/src/mill/util/VcsVersionGitTests.scala[CV-13 characterization test]
+
 === Target requirements (TR, desired behavior)
 
 These requirements describe the intended fork-versioning behavior. They are
