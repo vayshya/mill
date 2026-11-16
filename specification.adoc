@@ -1,5 +1,5 @@
-= Спецификация
+= Specification
 
-== Требования
+== Requirements
 
-* link:integration/feature/vcs-version/requirements.adoc[Требования VCS Versioning]
+* link:integration/feature/vcs-version/requirements.adoc[VCS Versioning requirements]
