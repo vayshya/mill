@@ -31,14 +31,6 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y lsof
         shell: bash
-      - name: Build raw platform launcher (Unix)
-        if: runner.os != 'Windows'
-        run: ./mill dist.raw.executable
-        shell: bash
-      - name: Build raw platform launcher (Windows)
-        if: runner.os == 'Windows'
-        run: ./mill.bat dist.raw.executable
-        shell: pwsh
       - name: Test local repository evaluation and open-file handles
         run: pwsh -NoProfile -File scripts/test-windows-localrepo-lock.ps1
         shell: pwsh
