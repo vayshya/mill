@@ -24,6 +24,9 @@ jobs:
         with:
           distribution: zulu
           java-version: '25'
+      - name: Characterize current raw-launcher behavior
+        run: pwsh -NoProfile -File integration/feature/local-repository-lifecycle/characterize-local-repository-lifecycle.ps1
+        shell: pwsh
 
   local-repo-open-handles:
     name: Local repo open handles (${{ matrix.os }})
@@ -45,9 +48,6 @@ jobs:
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y lsof
         shell: bash
-      - name: Characterize current raw-launcher behavior
-        run: pwsh -NoProfile -File integration/feature/local-repository-lifecycle/characterize-local-repository-lifecycle.ps1
-        shell: pwsh
       - name: Check all launcher and lifecycle variants
         run: pwsh -NoProfile -File integration/feature/local-repository-lifecycle/test-local-repository-lock.ps1
         shell: pwsh
