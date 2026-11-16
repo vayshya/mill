@@ -29,6 +29,7 @@ import mill.api.{BuildCtx, Evaluator}
 import mill.androidlib.AndroidSdkModule
 
 def millVersion: T[String] = Task.Input {
+  // Fall back to SNAPSHOT without a tag and ignore dirty state in CI.
   VcsVersion.formatMillVersion(
     VcsVersion.calcVcsState(Task.log),
     isCi = Task.env.contains("CI")
