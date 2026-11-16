@@ -32,6 +32,11 @@ object VcsVersionBuildTests extends UtestIntegrationTestSuite {
     test("VCSV-CHAR-08 build version ignores dirty state in CI") - integrationTest { tester =>
       import tester.*
 
+      val existingTags = git(workspacePath, "tag", "--list").linesIterator
+        .filter(_.nonEmpty)
+        .toSeq
+      existingTags.foreach(tag => git(workspacePath, "tag", "-d", tag))
+
       val tag = "vcs-version-characterization"
       git(workspacePath, "tag", tag, "HEAD")
       os.write.append(workspacePath / "README.md", "\nVCS version characterization dirty change\n")
