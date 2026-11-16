@@ -165,7 +165,7 @@ function Assert-MillClasspathsOutsideLocalRepo([string] $Phase) {
     )
     if ($usingLocalRepo.Count -gt 0) {
         $details = $usingLocalRepo | ForEach-Object { "$($_.Kind) PID=$($_.Id): $($_.CommandLine)" }
-        $message = "Daemon/worker runtime classpaths still reference localRepo after $Phase:" +
+        $message = "Daemon/worker runtime classpaths still reference localRepo after " + $Phase + ":" +
             [Environment]::NewLine + ($details -join [Environment]::NewLine)
         $failures.Add($message)
         Write-Host "FAIL: $message"
