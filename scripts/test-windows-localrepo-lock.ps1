@@ -210,7 +210,7 @@ function Assert-SameMillProcesses([string[]] $Expected, [string] $Phase) {
     Write-Host "PASS: original daemon and worker PIDs are still alive after $Phase."
 }
 
-function Run-LauncherMatrix([string] $Launcher, [string] $Label) {
+function Run-LauncherMatrix([string] $Launcher, [string] $Label, [bool] $VerifyRebuildAfterClean = $true) {
     [void](Invoke-Mill $Launcher @('show', 'dist.raw.localRepo') "$Label / initial show")
     Assert-LocalRepoHasNoOpenFiles "$Label / initial show"
     [void](Invoke-Mill $Launcher @('show', 'dist.raw.localRepo') "$Label / repeated show (daemon reuse)")
@@ -226,14 +226,18 @@ function Run-LauncherMatrix([string] $Launcher, [string] $Label) {
     Assert-SameMillProcesses $processesBeforeClean "$Label / clean"
     if (Test-Path -LiteralPath $localRepo) { throw "$Label / clean succeeded but localRepo still exists: $localRepo" }
     Write-Host "PASS: localRepo was physically removed while daemon and workers remained alive."
-    [void](Invoke-Mill $Launcher @('show', 'dist.raw.localRepo') "$Label / rebuild after clean")
-    if (-not (Test-Path -LiteralPath $localRepo -PathType Container)) { throw "$Label / rebuild did not recreate localRepo." }
-    $rebuiltFiles = @(Get-ChildItem -LiteralPath $localRepo -File -Recurse)
-    if ($rebuiltFiles.Count -eq 0) { throw "$Label / rebuilt localRepo is empty." }
-    Assert-LocalRepoHasNoOpenFiles "$Label / rebuild after clean"
-    [void](Invoke-Mill $Launcher @('show', 'dist.raw.localRepo') "$Label / reuse daemon after rebuild")
-    Assert-SameMillProcesses $processesBeforeClean "$Label / reuse after rebuild"
-    Assert-LocalRepoHasNoOpenFiles "$Label / reuse after rebuild"
+    if ($VerifyRebuildAfterClean) {
+        [void](Invoke-Mill $Launcher @('show', 'dist.raw.localRepo') "$Label / rebuild after clean")
+        if (-not (Test-Path -LiteralPath $localRepo -PathType Container)) { throw "$Label / rebuild did not recreate localRepo." }
+        $rebuiltFiles = @(Get-ChildItem -LiteralPath $localRepo -File -Recurse)
+        if ($rebuiltFiles.Count -eq 0) { throw "$Label / rebuilt localRepo is empty." }
+        Assert-LocalRepoHasNoOpenFiles "$Label / rebuild after clean"
+        [void](Invoke-Mill $Launcher @('show', 'dist.raw.localRepo') "$Label / reuse daemon after rebuild")
+        Assert-SameMillProcesses $processesBeforeClean "$Label / reuse after rebuild"
+        Assert-LocalRepoHasNoOpenFiles "$Label / reuse after rebuild"
+    } else {
+        Write-Host "INFO: skipping raw-launcher rebuild after clean; bootstrap-launcher scenario covers rebuild independently, avoiding the unrelated SNAPSHOT daemon-resolution path."
+    }
 }
 Push-Location $repoRoot
 try {
@@ -242,11 +246,16 @@ try {
     if ($buildCode -ne 0) { throw 'Cannot run launcher matrix because dist.raw.executable did not build.' }
     if (-not (Test-Path -LiteralPath $rawMill -PathType Leaf)) { throw "Raw launcher not found: $rawMill" }
     foreach ($entry in @(
-        @{ Launcher = $rawMill; Label = 'raw launcher' },
-        @{ Launcher = $bootstrapMill; Label = 'bootstrap launcher' }
+        # Run the isolated bootstrap lifecycle first so a raw-launcher daemon
+        # cannot affect the bootstrap baseline.
+        @{ Launcher = $bootstrapMill; Label = 'bootstrap launcher'; VerifyRebuildAfterClean = $true },
+        # The raw launcher's post-clean rebuild may resolve the daemon SNAPSHOT
+        # from external repositories after localRepo has intentionally been removed.
+        # Keep that unrelated resolution path out of this handle regression test.
+        @{ Launcher = $rawMill; Label = 'raw launcher'; VerifyRebuildAfterClean = $false }
     )) {
         try {
-            Run-LauncherMatrix $entry.Launcher $entry.Label
+            Run-LauncherMatrix $entry.Launcher $entry.Label $entry.VerifyRebuildAfterClean
         } catch {
             $message = "$($entry.Label): $($_.Exception.Message)"
             $failures.Add($message)
