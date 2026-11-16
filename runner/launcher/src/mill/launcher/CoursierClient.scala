@@ -9,6 +9,10 @@ import mill.constants.BuildInfo
 import upickle.default.*
 
 import scala.concurrent.ExecutionContext.Implicits.global
+import java.net.URI
+import java.nio.file.{AtomicMoveNotSupportedException, FileAlreadyExistsException, StandardCopyOption}
+import java.security.MessageDigest
+import java.nio.file.Paths
 import mill.api.JsonFormatters.*
 
 object CoursierClient {
@@ -47,6 +51,65 @@ object CoursierClient {
         val value = compute
         os.write.over(cacheFile, write((cacheKey, value)), createFolders = true)
         value
+    }
+  }
+
+  private def sha256(path: os.Path): String = {
+    val digest = MessageDigest.getInstance("SHA-256")
+    val input = os.read.inputStream(path)
+    try {
+      val buffer = new Array[Byte](8192)
+      var read = input.read(buffer)
+      while (read >= 0) {
+        if (read > 0) digest.update(buffer, 0, read)
+        read = input.read(buffer)
+      }
+    } finally input.close()
+    digest.digest().map(b => f"${b & 0xff}%02x").mkString
+  }
+
+  private def fileRepositoryPath(repository: String): Option[os.Path] =
+    if (repository.startsWith("file:")) {
+      try Some(os.Path(Paths.get(new URI(repository))))
+      catch { case _: Exception => None }
+    } else None
+
+  /**
+   * The daemon outlives the launcher process. Coursier can still return the source path
+   * for local SNAPSHOT artifacts, even when localArtifactsShouldBeCached is enabled.
+   * Copy those artifacts into immutable, content-addressed files outside the repository
+   * before using them as the daemon's JVM classpath.
+   */
+  private def stabilizeLocalArtifacts(
+      classpath: Seq[os.Path],
+      localRepositories: Seq[os.Path],
+      outDir: String
+  ): Seq[os.Path] = {
+    val stableRoot = cacheDir(outDir) / "mill-daemon-local-artifacts"
+    classpath.map { source =>
+      if (!localRepositories.exists(source.startsWith)) source
+      else {
+        val digest = sha256(source)
+        val destination = stableRoot / digest / source.last
+        if (!os.exists(destination)) {
+          os.makeDir.all(destination / os.up)
+          val temporary = destination / os.up / s".${destination.last}.${java.util.UUID.randomUUID()}.tmp"
+          os.copy.over(source, temporary)
+          try {
+            java.nio.file.Files.move(
+              temporary.toNIO,
+              destination.toNIO,
+              StandardCopyOption.ATOMIC_MOVE
+            )
+          } catch {
+            case _: FileAlreadyExistsException => os.remove(temporary)
+            case _: AtomicMoveNotSupportedException =>
+              try java.nio.file.Files.move(temporary.toNIO, destination.toNIO)
+              catch { case _: FileAlreadyExistsException => os.remove(temporary) }
+          }
+        }
+        destination
+      }
     }
   }
 
@@ -100,7 +163,9 @@ object CoursierClient {
         }
       }
 
-      artifactsResultOrError.artifacts.map(_._2.toString).toSeq.map(os.Path(_))
+      val resolvedArtifacts = artifactsResultOrError.artifacts.map(_._2.toString).toSeq.map(os.Path(_))
+      val localRepositories = (overridesRepos ++ millRepositories0).flatMap(fileRepositoryPath).distinct
+      stabilizeLocalArtifacts(resolvedArtifacts, localRepositories, outDir)
     }
 
     if (hasLocalRepositories) {
