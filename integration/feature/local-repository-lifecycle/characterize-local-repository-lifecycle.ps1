@@ -82,7 +82,8 @@ try {
     }
     Stop-MillProcesses $bootstrapMill 'bootstrap build isolation'
 
-    [void](Invoke-Mill $rawMill @('show', 'millVersion') 'raw daemon startup')
+     $rawStartup = Invoke-Mill $rawMill @('show', 'millVersion') 'raw daemon startup'
+    Write-Host "Raw launcher client exit code: $($rawStartup.ExitCode) (the daemon process is inspected independently)."
     $daemons = @(Get-MillProcesses | Where-Object Kind -eq 'daemon')
     if ($daemons.Count -eq 0) { throw 'Raw launcher did not leave a Mill daemon process running.' }
 
@@ -102,7 +103,14 @@ try {
         throw 'Characterization changed: no raw daemon command line exposed a localRepo artifact path.'
     }
 
-    [void](Invoke-Mill $rawMill @('__.compile') 'compile to start Zinc workers')
+        # Use the bootstrap launcher as a client after the raw launcher has started the daemon.
+    # On Windows the raw launcher command itself can return exit code 1 even though its daemon
+    # is running; using it for subsequent commands would conflate that launcher failure with clean.
+    $rawDaemonIds = @($daemons | ForEach-Object { [int]$_.Id })
+    $compile = Invoke-Mill $bootstrapMill @('__.compile') 'bootstrap client compile to start Zinc workers'
+    if ($compile.ExitCode -ne 0) { throw "Could not start Zinc workers through the existing daemon; exit code $($compile.ExitCode)." }
+    $stillRawDaemons = @(Get-MillProcesses | Where-Object { $_.Kind -eq 'daemon' -and $_.Id -in $rawDaemonIds })
+    if ($stillRawDaemons.Count -eq 0) { throw 'The raw-launched daemon was replaced before the worker/clean observation.' }
     $processes = @(Get-MillProcesses)
     $daemons = @($processes | Where-Object Kind -eq 'daemon')
     $workers = @($processes | Where-Object Kind -eq 'worker')
@@ -117,7 +125,7 @@ try {
     }
 
     $originalIds = @($processes | ForEach-Object { [int]$_.Id })
-    $clean = Invoke-Mill $rawMill @('clean', 'dist.raw.localRepo') 'clean while daemon and Zinc workers are alive'
+    $clean = Invoke-Mill $bootstrapMill @('clean', 'dist.raw.localRepo') 'bootstrap client clean while raw daemon and Zinc workers are alive'
     Assert-SameProcesses $originalIds 'clean'
 
     if ($isWindowsPlatform) {
@@ -132,7 +140,7 @@ try {
         Write-Host 'PASS: observed POSIX behavior — clean removes localRepo while the original processes are alive.'
     }
 } finally {
-    try { Stop-MillProcesses $rawMill 'raw characterization' } catch { Write-Host "Cleanup warning: $($_.Exception.Message)" }
+    try { Stop-MillProcesses $bootstrapMill 'raw characterization' } catch { Write-Host "Cleanup warning: $($_.Exception.Message)" }
     if (Test-Path -LiteralPath $localRepo) {
         try { [void](Invoke-Mill $bootstrapMill @('clean', 'dist.raw.localRepo') 'cleanup localRepo after characterization') }
         catch { Write-Host "Repository cleanup warning: $($_.Exception.Message)" }
