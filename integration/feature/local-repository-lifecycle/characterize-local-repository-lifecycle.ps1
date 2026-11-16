@@ -64,7 +64,7 @@ function Assert-SameProcesses([int[]] $ExpectedIds, [string] $Phase) {
     $actual = @(Get-MillProcesses | ForEach-Object { [int]$_.Id })
     $missing = @($ExpectedIds | Where-Object { $_ -notin $actual })
     if ($missing.Count -gt 0) {
-        throw "Characterization invalid: original daemon/worker PIDs exited during $Phase: $($missing -join ', ')"
+        throw "Characterization invalid: original daemon/worker PIDs exited during ${Phase}: $($missing -join ', ')"
     }
     Write-Host "PASS: original daemon and worker PIDs remain alive after $Phase."
 }
