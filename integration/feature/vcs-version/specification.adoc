@@ -1,0 +1,5 @@
+= Specification
+
+== Requirements
+
+* link:requirements.adoc[VCS Versioning requirements]
