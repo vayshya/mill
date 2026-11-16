@@ -263,6 +263,41 @@ uses `dirtyHashDigits = 8`, `commitCountPad = 0`, and
 the tests verify zero-padded commit counts and the corresponding abbreviated
 revision and dirty marker output.
 
+=== Downstream distribution integration (characterization)
+
+These tests characterize distribution outputs that consume the version
+produced by the build. They do not independently verify Git tag discovery
+or the algorithm used to calculate the VCS state.
+
+* VCSV-CHAR-20 — Example distribution URLs contain a concrete version
++
+The generated example list must be non-empty. Each example path must be
+relative and normalized. Each download URL must not contain `SNAPSHOT`;
+its version path segment must not contain `SNAPSHOT`; and its filename
+must use that same version segment in the `mill-dist-$version-` prefix
+and identify the corresponding example ZIP.
++
+This is a downstream assertion on generated distribution URLs. It does
+not attempt to download the artifact or establish that an artifact exists
+in Maven Central.
++
+link:https://github.com/vayshya/mill/blob/fork-versioning/dist/test/src/ExampleListTests.scala[VCSV-CHAR-20 test]
+
+* VCSV-CHAR-21 — Example ZIP launchers embed the expected Mill version
++
+For every ZIP listed in the example ZIP manifest, the archive must contain
+both `mill` and `mill.bat` launcher scripts. Both scripts must contain
+the `DEFAULT_MILL_VERSION` marker and the expected version supplied via
+`MILL_EXPECTED_VERSION`. The archive must also contain exactly one of
+`build.mill` or `build.mill.yaml`; YAML examples must include
+`readme.adoc`.
++
+This test checks that the expected version is propagated into the
+distributed launchers. It does not calculate or independently validate
+the VCS version.
++
+link:https://github.com/vayshya/mill/blob/fork-versioning/dist/test/src/ExampleZipTests.scala[VCSV-CHAR-21 test]
+
 === Target requirements (TAR, desired behavior)
 
 These requirements describe the intended fork-versioning behavior. They are
