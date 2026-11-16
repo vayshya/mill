@@ -120,6 +120,24 @@ object VcsVersionGitTests extends TestSuite {
       assert(result.commitsSinceLastTag == 4)
     }
 
+    test("CV-12 regression: upstream commits are excluded from the fork count") {
+      val repo = initRepo()
+      commit(repo, "A")
+      commit(repo, "B")
+      commit(repo, "C")
+      git(repo, "tag", "1.4.0-M2")
+      commit(repo, "upstream-D")
+      val upstreamHead = commit(repo, "upstream-E")
+      git(repo, "branch", "upstream", upstreamHead)
+      commit(repo, "fork-F")
+      commit(repo, "fork-G")
+
+      val result = state(repo)
+      assert(result.lastTag == Some("1.4.0-M2"))
+      // Upstream D/E are already part of the fork's baseline; only F/G are fork commits.
+      assert(result.commitsSinceLastTag == 2)
+    }
+
     test("CV-10 fork checkout without available tags") {
       val parent = os.temp.dir()
       val source = parent / "source"
