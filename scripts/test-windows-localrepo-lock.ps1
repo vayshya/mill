@@ -156,7 +156,7 @@ function Assert-MillProcesses([string] $Phase) {
     return @($processes | ForEach-Object { "$($_.Kind):$($_.Id)" } | Sort-Object -Unique)
 }
 
-function Assert-MillClasspathsOutsideLocalRepo([string] $Phase) {
+function Assert-MillClasspathsOutsideLocalRepo([string] $Phase, [bool] $Required) {
     $needle = $localRepo.Replace('\', '/').ToLowerInvariant()
     $usingLocalRepo = @(
         Get-MillProcesses | Where-Object {
@@ -167,8 +167,12 @@ function Assert-MillClasspathsOutsideLocalRepo([string] $Phase) {
         $details = $usingLocalRepo | ForEach-Object { "$($_.Kind) PID=$($_.Id): $($_.CommandLine)" }
         $message = "Daemon/worker runtime classpaths still reference localRepo after " + $Phase + ":" +
             [Environment]::NewLine + ($details -join [Environment]::NewLine)
-        $failures.Add($message)
-        Write-Host "FAIL: $message"
+        if ($Required) {
+            $failures.Add($message)
+            Write-Host "FAIL: $message"
+        } else {
+            Write-Host "INFO: $message"
+        }
     } else {
         Write-Host "PASS: daemon and worker runtime classpaths are outside localRepo after $Phase."
     }
@@ -188,7 +192,10 @@ function Run-LauncherMatrix([string] $Launcher, [string] $Label) {
     Assert-LocalRepoHasNoOpenFiles "$Label / repeated show"
     [void](Invoke-Mill $Launcher @('__.compile') "$Label / compile to start Zinc workers")
     $processesBeforeClean = Assert-MillProcesses "$Label / compile"
-    Assert-MillClasspathsOutsideLocalRepo "$Label / compile"
+    # The raw launcher is expected to resolve its runtime from localRepo; that is
+    # precisely the configuration under test for the open-handle regression.
+    # The bootstrap launcher must remain isolated from localRepo.
+    Assert-MillClasspathsOutsideLocalRepo "$Label / compile" ($Label -eq 'bootstrap launcher')
     Assert-LocalRepoHasNoOpenFiles "$Label / daemon and workers active"
     [void](Invoke-Mill $Launcher @('clean', 'dist.raw.localRepo') "$Label / clean with daemon and workers alive")
     Assert-SameMillProcesses $processesBeforeClean "$Label / clean"
