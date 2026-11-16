@@ -51,3 +51,24 @@ jobs:
       - name: Check all launcher and lifecycle variants
         run: pwsh -NoProfile -File integration/feature/local-repository-lifecycle/test-local-repository-lock.ps1
         shell: pwsh
+
+
+  local-repo-concurrency:
+    name: Local repo concurrency (${{'${{ matrix.os }}'}})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest]
+    runs-on: ${{'${{ matrix.os }}'}}
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-java@v4
+        with:
+          distribution: zulu
+          java-version: '25'
+      - name: Check concurrent repository consumer isolation
+        run: pwsh -NoProfile -File integration/feature/local-repository-lifecycle/test-local-repository-concurrency.ps1
+        shell: pwsh
