@@ -13,7 +13,7 @@ function Invoke-Launcher([string] $Launcher, [string[]] $MillArgs, [string] $Sce
     Write-Host ([Environment]::NewLine + '=== ' + $Scenario + ' ===')
     Write-Host "Launcher: $Launcher"
     Write-Host "Command: $($MillArgs -join ' ')"
-    $lines = @(& $Launcher @Args 2>&1 | ForEach-Object { $_.ToString() })
+    $lines = @(& $Launcher @MillArgs 2>&1 | ForEach-Object { $_.ToString() })
     $code = $LASTEXITCODE
     $lines | ForEach-Object { Write-Host $_ }
     if ($code -ne 0 -and -not $AllowNonZero) { throw "$Scenario failed with exit code $code" }
