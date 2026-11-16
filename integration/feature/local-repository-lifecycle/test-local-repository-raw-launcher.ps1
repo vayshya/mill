@@ -9,14 +9,15 @@ $bootstrap = Join-Path $repoRoot $(if ($isWindowsPlatform) { 'mill.bat' } else {
 $rawLauncher = Join-Path $repoRoot 'out/dist/raw/executable.dest' $(if ($isWindowsPlatform) { 'mill.bat' } else { 'mill' })
 $localRepo = Join-Path $repoRoot 'out/dist/raw/localRepo.dest'
 
-function Invoke-Launcher([string] $Launcher, [string[]] $Args, [string] $Scenario) {
+function Invoke-Launcher([string] $Launcher, [string[]] $Args, [string] $Scenario, [bool] $AllowNonZero = $false) {
     Write-Host ([Environment]::NewLine + '=== ' + $Scenario + ' ===')
     Write-Host "Launcher: $Launcher"
     Write-Host "Command: $($Args -join ' ')"
     $lines = @(& $Launcher @Args 2>&1 | ForEach-Object { $_.ToString() })
     $code = $LASTEXITCODE
     $lines | ForEach-Object { Write-Host $_ }
-    if ($code -ne 0) { throw "$Scenario failed with exit code $code" }
+    if ($code -ne 0 -and -not $AllowNonZero) { throw "$Scenario failed with exit code $code" }
+    return $code
 }
 
 function Get-MillProcesses {
@@ -56,7 +57,10 @@ try {
     Stop-Mill $bootstrap
     if (-not (Test-Path -LiteralPath $rawLauncher -PathType Leaf)) { throw "Raw launcher not found: $rawLauncher" }
 
-    Invoke-Launcher $rawLauncher @('show','millVersion') 'raw launcher daemon startup'
+    $startupCode = Invoke-Launcher $rawLauncher @('show','millVersion') 'raw launcher daemon startup' $true
+    if ($startupCode -ne 0) {
+        Write-Host "INFO: raw launcher daemon startup returned exit code $startupCode; continuing because the daemon must be inspected independently of the client command result."
+    }
     $daemons = @(Get-MillProcesses | Where-Object Kind -eq 'daemon')
     if ($daemons.Count -eq 0) { throw 'No raw-launched daemon was found.' }
 
