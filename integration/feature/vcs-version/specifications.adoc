@@ -77,6 +77,71 @@ the build task.
 +
 link:https://github.com/vayshya/mill/blob/fork-versioning/libs/util/test/src/mill/util/VcsVersionTests.scala[CV-08 test]
 
+=== Upstream and tag discovery approaches to characterize
+
+This section records alternative discovery approaches for investigation. It
+does not select or prescribe an implementation. Their behavior and
+applicability must be characterized before any desired algorithm is specified.
+
+==== Discovering the original upstream reference
+
+Potential sources for identifying the original branch or its remote include:
+
+* The current branch's Git configuration:
+  `branch.<name>.remote` and `branch.<name>.merge`, which can identify its
+  configured remote and upstream branch.
+* The remote-tracking default branch, such as
+  `refs/remotes/<remote>/HEAD`, which may identify a remote's default branch
+  but does not necessarily identify the original branch from which a fork
+  was created.
+* An explicitly configured remote and branch, supplied by the build or
+  repository configuration.
+* Conventional remote names such as `upstream` or `origin`. These are
+  naming conventions only and cannot by themselves establish which remote
+  is the original repository.
+
+The characterization should establish what information is available in a
+normal checkout, in a fork checkout, and in a checkout with multiple remotes
+or no configured upstream.
+
+==== Discovering the common upstream commit
+
+Potential ways to locate a common commit between the current HEAD and a
+candidate upstream reference include:
+
+* `git merge-base HEAD <upstream-ref>`, which finds a best common ancestor.
+* `git merge-base --all HEAD <upstream-ref>`, which exposes all best common
+  ancestors if the history has more than one.
+* Commit-graph inspection with commands such as
+  `git rev-list` or `git log`, to enumerate and compare the commits
+  reachable from the two references.
+
+The characterization should establish how these methods behave for a
+rebased fork, when the upstream has advanced, and when there are multiple
+candidate upstream references. Merge-based histories are outside the
+supported branch workflow described below.
+
+==== Discovering release tags applicable to a commit
+
+Potential ways to find release tags relevant to a candidate common commit
+include:
+
+* `git describe --abbrev=0 <commit>`, which asks Git for the nearest
+  reachable tag according to `git describe` semantics.
+* `git tag --merged <commit>` or
+  `git for-each-ref --merged=<commit> refs/tags`, which enumerate tags
+  whose commits are ancestors of the specified commit.
+* Inspecting tag refs and their target commits directly, then comparing
+  their ancestry relationship to the candidate common commit.
+* Inspecting tags advertised by a remote with
+  `git ls-remote --tags <remote>`. This reports remote tag references; it
+  does not by itself make the tagged objects available in the local object
+  database.
+
+The characterization should distinguish locally available tags from tags
+advertised by a remote, annotated tags from lightweight tags, and tags that
+are ancestors of the candidate common commit from tags that are not.
+
 === Reproduction scenarios
 
 The following scenarios characterize the current implementation and make
