@@ -1,3 +1,12 @@
+# Target-requirement coverage:
+# - LRL-TAR-01: inspect daemon runner classpath and OS-level open file handles.
+# - LRL-TAR-02: verify physical deletion while the original daemon/workers live.
+# - LRL-TAR-03: bootstrap launcher rebuild and daemon reuse after clean.
+# - LRL-TAR-04: raw-launcher scenario stops after handle-release/deletion checks.
+# - LRL-TAR-05: verify initial and rebuilt local repository population.
+# - LRL-TAR-06: report locked files and the processes holding them.
+# - LRL-TAR-08: verify the daemon runner classpath is outside the deletable repository.
+# LRL-TAR-07 (concurrent publication/isolation) is not covered by this script.
 # Cross-platform regression test for open handles in dist.raw.localRepo.
 # Successful unlink on Unix is not sufficient: inspect OS-level handles on every OS.
 $ErrorActionPreference = 'Stop'
