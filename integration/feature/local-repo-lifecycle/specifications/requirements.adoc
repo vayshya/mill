@@ -6,7 +6,7 @@ This feature defines the lifecycle guarantees for Mill's generated local artifac
 
 == Requirements
 
-=== LRL-001 — Repository files must not remain locked after resolution
+=== LOCAL-REPOSITORY-LIFECYCLE-001 — Repository files must not remain locked after resolution
 
 After Mill has resolved artifacts from the local repository, its daemon and Zinc worker processes must not retain open file handles to repository JARs that prevent the repository from being removed on Windows.
 
@@ -15,7 +15,7 @@ Verification:
 * Inspect open file handles for files below `dist.raw.localRepo`.
 * Verify that no repository files remain open.
 
-=== LRL-002 — Clean must physically remove the local repository
+=== LOCAL-REPOSITORY-LIFECYCLE-002 — Clean must physically remove the local repository
 
 The clean operation for `dist.raw.localRepo` must remove the repository directory and its contents from disk, even while the Mill daemon and its workers remain running, provided they no longer hold files in that directory open.
 
@@ -26,7 +26,7 @@ Verification:
 * Verify that the repository directory no longer exists.
 * Verify that the original daemon and worker processes are still alive.
 
-=== LRL-003 — Bootstrap launcher must rebuild the repository after clean
+=== LOCAL-REPOSITORY-LIFECYCLE-003 — Bootstrap launcher must rebuild the repository after clean
 
 After a successful clean, the bootstrap launcher must be able to recreate `dist.raw.localRepo` with its expected artifacts. Reusing the daemon after the rebuild must not require terminating the previously running daemon or workers.
 
@@ -36,7 +36,7 @@ Verification:
 * Verify that the directory is recreated and contains files.
 * Verify that no repository files remain open and that the original daemon and worker processes are still alive.
 
-=== LRL-004 — Raw launcher clean scenario must be isolated from rebuild resolution
+=== LOCAL-REPOSITORY-LIFECYCLE-004 — Raw launcher clean scenario must be isolated from rebuild resolution
 
 The raw-launcher regression scenario verifies repository file-handle release and physical deletion. It must not treat a subsequent raw-launcher rebuild as part of this regression, because after deletion that rebuild can exercise the separate daemon SNAPSHOT dependency-resolution path.
 
