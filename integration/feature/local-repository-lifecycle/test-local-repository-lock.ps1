@@ -186,13 +186,13 @@ function Assert-MillDaemonClasspathDoesNotReferenceLocalRepo([string] $Phase) {
 }
 
 function Assert-MillDaemonClasspathOutsideLocalRepo([string] $Phase) {
-    $needle = $localRepo.Replace('\\', '/').ToLowerInvariant()
+    $needle = $localRepo.Replace('\', '/').ToLowerInvariant()
     $daemons = @(Get-MillProcesses | Where-Object Kind -eq 'daemon')
     if ($daemons.Count -eq 0) {
         throw "No Mill daemon process was found while checking its runtime classpath after $Phase."
     }
     foreach ($daemon in $daemons) {
-        $commandLine = $daemon.CommandLine.Replace('\\', '/').ToLowerInvariant()
+        $commandLine = $daemon.CommandLine.Replace('\', '/').ToLowerInvariant()
         if ($commandLine.Contains($needle)) {
             throw "Mill daemon PID $($daemon.Id) has a runtime classpath that references the deletable localRepo after $Phase: $($daemon.CommandLine)"
         }
