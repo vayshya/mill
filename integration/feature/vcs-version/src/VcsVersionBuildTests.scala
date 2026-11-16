@@ -13,7 +13,7 @@ object VcsVersionBuildTests extends UtestIntegrationTestSuite {
     os.proc(Seq("git") ++ args).call(cwd = cwd, stderr = os.Pipe).out.trim()
 
   val tests: Tests = Tests {
-    test("VCSV-CHAR-22 build version fallback without tags") - integrationTest { tester =>
+    test("VCSV-CHAR-07 build version fallback without tags") - integrationTest { tester =>
       import tester.*
 
       val tags = git(workspacePath, "tag", "--list").linesIterator.filter(_.nonEmpty).toSeq
@@ -29,7 +29,7 @@ object VcsVersionBuildTests extends UtestIntegrationTestSuite {
       assert(lastTag.out.contains("SNAPSHOT"))
     }
 
-    test("VCSV-CHAR-23 build version ignores dirty state in CI") - integrationTest { tester =>
+    test("VCSV-CHAR-08 build version ignores dirty state in CI") - integrationTest { tester =>
       import tester.*
 
       val tag = "vcs-version-characterization"
