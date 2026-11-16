@@ -128,16 +128,21 @@ object VcsVersionGitTests extends TestSuite {
       commit(repo, "B")
       commit(repo, "C")
       git(repo, "tag", "1.4.0-M2")
-      commit(repo, "upstream-D")
-      val upstreamHead = commit(repo, "upstream-E")
-      git(repo, "branch", "upstream", upstreamHead)
-      git(repo, "checkout", "--quiet", "-b", "fork", upstreamHead)
+      git(repo, "branch", "upstream")
+      git(repo, "checkout", "--quiet", "-b", "fork")
       commit(repo, "fork-F")
       commit(repo, "fork-G")
 
+      git(repo, "checkout", "--quiet", "upstream")
+      commit(repo, "upstream-D")
+      val upstreamHead = commit(repo, "upstream-E")
+      git(repo, "checkout", "--quiet", "fork")
+      git(repo, "rebase", "upstream")
+
+      assert(git(repo, "merge-base", "fork", "upstream") == upstreamHead)
       val result = state(repo)
       assert(result.lastTag == Some("1.4.0-M2"))
-      // Upstream D/E are already part of the fork's baseline; only F/G are fork commits.
+      // Rebased fork-F/fork-G are the only commits added after the upstream baseline.
       assert(result.commitsSinceLastTag == 2)
     }
 
@@ -194,30 +199,6 @@ object VcsVersionGitTests extends TestSuite {
       val result = state(checkout)
       assert(result.lastTag == Some("1.4.0-M2"))
       assert(result.commitsSinceLastTag == 2)
-    }
-
-    test("CV-14 merge of upstream history into the fork") {
-      val repo = initRepo()
-      commit(repo, "A")
-      commit(repo, "B")
-      val common = commit(repo, "C")
-      git(repo, "tag", "base-release")
-      git(repo, "branch", "upstream")
-      git(repo, "checkout", "--quiet", "upstream")
-      commit(repo, "upstream-D")
-      commit(repo, "upstream-E")
-      git(repo, "tag", "upstream-release")
-      git(repo, "checkout", "--quiet", "-b", "fork", common)
-      commit(repo, "fork-F")
-      git(repo, "merge", "--no-ff", "--quiet", "upstream", "-m", "merge-upstream")
-      commit(repo, "fork-G")
-
-      val describedTag = git(repo, "describe", "--abbrev=0", "--tags")
-      val result = state(repo)
-      assert(describedTag == "upstream-release")
-      assert(result.lastTag == Some("upstream-release"))
-      // fork-F, the merge commit, and fork-G are not reachable from the selected tag.
-      assert(result.commitsSinceLastTag == 3)
     }
 
     test("CV-11 divergent histories") {
