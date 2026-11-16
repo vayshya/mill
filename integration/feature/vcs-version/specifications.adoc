@@ -134,8 +134,7 @@ G. Advance the original `upstream` branch from C with commits D and E, then
 rebase the fork branch onto E. The resulting fork HEAD is a descendant of E;
 the `upstream` ref remains at E. The calculated release tag remains
 `1.4.0-M2`, and only the two rebased fork commits count:
-`commitsSinceLastTag = 2`. The test must use an actual `git rebase`, not a
-merge commit or a manually constructed linear history.
+`commitsSinceLastTag = 2`. The test must use an actual `git rebase`.
 +
 link:https://github.com/vayshya/mill/blob/fork-versioning/libs/util/test/src/mill/util/VcsVersionGitTests.scala[CV-12 test]
 
@@ -161,8 +160,6 @@ The versioning requirements and regression tests assume this linearized
 workflow: the fork's history is based on the latest applicable commit of
 its original branch, followed only by the fork's own commits. Divergent
 histories and merge-based integration are outside the supported workflow.
-CV-11 remains solely a characterization of how the current Git commands
-behave on such an unsupported graph.
 
 === Scope and constraints
 
