@@ -6,7 +6,14 @@ The Local Repository Lifecycle feature defines how Mill manages the generated lo
 
 The repository is a temporary, generated artifact store used by Mill. Its lifecycle must be compatible with operating systems that prevent deletion of files while a process still has them open, particularly Windows.
 
-This feature is concerned with the complete lifecycle rather than repository selection:
+This feature is concerned with the complete lifecycle rather than repository selection.
+
+The raw launcher resolves the long-lived Mill daemon's runner classpath through Coursier, using
+the generated local repository as a file-based artifact source. Those local artifacts must be
+copied into a stable Coursier cache before the daemon is launched. The daemon must never retain
+a runner classpath that points directly into the temporary `dist.raw.localRepo` directory.
+This is distinct from the Zinc worker classpath: both are lifecycle consumers, but the daemon
+runner classpath is established before the first build task is evaluated.
 
 . Mill resolves artifacts from the generated local repository.
 . The daemon and Zinc workers finish using repository artifacts and release file handles.
@@ -49,6 +56,7 @@ After Mill has resolved artifacts from the local repository, its daemon and Zinc
 
 Verification:
 * Run the local repository task through the launcher under test.
+* Inspect the daemon JVM's runner classpath and verify that it contains no paths below `dist.raw.localRepo`.
 * Inspect open file handles for files below `dist.raw.localRepo`.
 * Verify that no repository files remain open.
 
