@@ -165,6 +165,35 @@ object VcsVersionGitTests extends TestSuite {
       assert(VcsVersion.formatMillVersion(result, isCi = false) == "SNAPSHOT")
     }
 
+    test("CV-13 regression: an upstream release tag is usable without a local tag") {
+      val parent = os.temp.dir()
+      val upstream = initRepo()
+      commit(upstream, "A")
+      commit(upstream, "B")
+      commit(upstream, "C")
+      git(upstream, "tag", "1.4.0-M2")
+      commit(upstream, "upstream-D")
+      commit(upstream, "upstream-E")
+
+      val bareUpstream = parent / "upstream.git"
+      os.proc("git", "clone", "--quiet", "--bare", upstream.toString, bareUpstream.toString)
+        .call(cwd = parent, stderr = os.Pipe)
+
+      val checkout = parent / "fork"
+      os.proc("git", "clone", "--quiet", "--no-tags", bareUpstream.toString, checkout.toString)
+        .call(cwd = parent, stderr = os.Pipe)
+      git(checkout, "remote", "rename", "origin", "upstream")
+      commit(checkout, "fork-F")
+      commit(checkout, "fork-G")
+
+      assert(git(checkout, "tag", "--list").isEmpty)
+      assert(git(checkout, "ls-remote", "--tags", "upstream", "refs/tags/1.4.0-M2").nonEmpty)
+
+      val result = state(checkout)
+      assert(result.lastTag == Some("1.4.0-M2"))
+      assert(result.commitsSinceLastTag == 2)
+    }
+
     test("CV-11 divergent histories") {
       val repo = initRepo()
       val common = commit(repo, "common")
