@@ -19,6 +19,18 @@ object VcsVersionTests extends TestSuite {
   )
 
   def tests = Tests {
+
+    test("CV-07 millVersion falls back to SNAPSHOT without a tag") {
+      assert(VcsVersion.formatMillVersion(state(null, 0), isCi = false) == "SNAPSHOT")
+      assert(VcsVersion.formatMillVersion(state(null, 3), isCi = true) == "SNAPSHOT")
+    }
+
+    test("CV-08 CI ignores dirty state while local version retains it") {
+      val dirty = state("1.2.3", 2, dirtyHash = "deadbeef")
+      assert(VcsVersion.formatMillVersion(dirty, isCi = true) == dirty.copy(dirtyHash = None).format())
+      assert(VcsVersion.formatMillVersion(dirty, isCi = false) == dirty.format())
+    }
+
     test("VcsState.format") {
       test("With default format options") {
         test("without any tag and commit") {
