@@ -34,7 +34,7 @@ The key guarantees are:
 
 == Verification
 
-The Windows file-handle regression is implemented by link:../../../../scripts/test-windows-localrepo-lock.ps1[the Windows local repository lock test].
+The Windows file-handle regression is implemented by link:../../scripts/test-windows-localrepo-lock.ps1[the Windows local repository lock test].
 
 The test distinguishes bootstrap and raw launcher scenarios. The bootstrap scenario includes clean, rebuild, and daemon reuse. The raw-launcher scenario verifies file-handle release and physical deletion; its post-clean rebuild is deliberately excluded because that would also test a separate SNAPSHOT resolution path.
 
@@ -85,6 +85,30 @@ Verification:
 * Run the raw launcher scenario.
 * Verify that repository files are not held open and that clean physically removes the repository.
 * Do not assert raw-launcher rebuild behavior in this test.
+
+=== LRL-005 — Repository must be created and populated when requested
+
+When Mill resolves `dist.raw.localRepo`, the generated repository must be created if it does not exist and populated with the artifacts required by the requested operation. A successful task result must not leave the repository missing or unusable.
+
+Verification:
+* Start from a state where `dist.raw.localRepo` does not exist.
+* Invoke `dist.raw.localRepo` through the supported launcher scenario.
+* Verify that the repository directory is created and contains the expected artifacts.
+* Invoke the task again and verify that it succeeds while reusing the existing daemon.
+
+The Windows lifecycle regression script is the integration-test location for this scenario; its initial-resolution checks must assert repository existence and contents, not only successful task exit.
+
+=== LRL-006 — Lock diagnostics must identify processes holding repository files
+
+When the lifecycle regression detects an open file under `dist.raw.localRepo`, its diagnostic output must identify the affected file and the process or processes holding it open. Where the operating system exposes the information, diagnostics must include process identifiers and useful process details (such as executable name and command line). Failure to collect supplemental process details must not hide the original lock failure.
+
+Verification:
+* Cause or retain an open handle to a file under `dist.raw.localRepo`.
+* Run the lock-detection check.
+* Verify that the failure output identifies the file and locking process identifiers.
+* Verify that available process details are included and that unavailable supplemental details are reported without suppressing the lock failure.
+
+The Windows file-handle regression script already contains platform-specific lock probes and process-detail formatting; the assertions and failure output must continue to satisfy this requirement.
 
 == Scope boundaries
 
