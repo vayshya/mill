@@ -13,8 +13,11 @@ $workDir = Join-Path ([System.IO.Path]::GetTempPath()) ("mill-lrl-tar07-" + [gui
 $helperSource = Join-Path $workDir 'RepositoryConsumer.java'
 $helperClasses = Join-Path $workDir 'classes'
 $releaseFile = Join-Path $workDir 'release'
+$newReleaseFile = Join-Path $workDir 'new-release'
 $consumerOutput = Join-Path $workDir 'consumer.out'
 $consumerError = Join-Path $workDir 'consumer.err'
+$newConsumerOutput = Join-Path $workDir 'new-consumer.out'
+$newConsumerError = Join-Path $workDir 'new-consumer.err'
 
 function Invoke-Mill([string] $Launcher, [string[]] $MillArgs, [string] $Scenario) {
     Write-Host ([Environment]::NewLine + '=== ' + $Scenario + ' ===')
@@ -70,16 +73,17 @@ public class RepositoryConsumer {
     if ($LASTEXITCODE -ne 0) { throw 'Could not compile the LRL-TAR-07 repository consumer helper.' }
 }
 
-function Start-RepositoryConsumer([string] $JarPath) {
-    if (Test-Path -LiteralPath $consumerOutput) { Remove-Item -LiteralPath $consumerOutput -Force }
-    if (Test-Path -LiteralPath $consumerError) { Remove-Item -LiteralPath $consumerError -Force }
+function Start-RepositoryConsumer([string] $JarPath, [string] $ReleasePath, [string] $OutputPath, [string] $ErrorPath) {
+    if (Test-Path -LiteralPath $OutputPath) { Remove-Item -LiteralPath $OutputPath -Force }
+    if (Test-Path -LiteralPath $ErrorPath) { Remove-Item -LiteralPath $ErrorPath -Force }
     $java = (Get-Command java -ErrorAction Stop).Source
-    Start-Process -FilePath $java -ArgumentList @('-cp', $helperClasses, 'RepositoryConsumer', $JarPath, $releaseFile, $consumerOutput) -RedirectStandardError $consumerError -PassThru -NoNewWindow
+    Start-Process -FilePath $java -ArgumentList @('-cp', $helperClasses, 'RepositoryConsumer', $JarPath, $ReleasePath, $OutputPath) -RedirectStandardError $ErrorPath -PassThru -NoNewWindow
 }
 
 New-Item -ItemType Directory -Force -Path $workDir | Out-Null
 Push-Location $repoRoot
 $consumer = $null
+$newConsumer = $null
 try {
     New-ConsumerHelper
     if (-not (Test-Path -LiteralPath $bootstrapMill -PathType Leaf)) { throw "Bootstrap launcher not found: $bootstrapMill" }
@@ -89,8 +93,9 @@ try {
     $initialJar = $initialInventory | Where-Object { $_.RelativePath -like '*.jar' } | Select-Object -First 1
     if ($null -eq $initialJar) { throw 'No JAR artifact was found in the initial local repository.' }
     $initialJarPath = Join-Path $localRepo $initialJar.RelativePath
+    $initialJarHash = (Get-FileHash -LiteralPath $initialJarPath -Algorithm SHA256).Hash
 
-    $consumer = Start-RepositoryConsumer $initialJarPath
+    $consumer = Start-RepositoryConsumer $initialJarPath $releaseFile $consumerOutput $consumerError
     $deadline = [DateTime]::UtcNow.AddSeconds(30)
     do {
         Start-Sleep -Milliseconds 100
@@ -111,10 +116,107 @@ try {
         throw "Concurrent repository publication failed with exit code $($publisher.ExitCode). stderr: $(Get-Content -LiteralPath $publisherError -Raw)"
     }
 
+    if (-not (Test-Path -LiteralPath $initialJarPath -PathType Leaf)) {
+        throw 'Concurrent publication removed the initial artifact while its consumer was still active.'
+    }
+    $activeJarHash = (Get-FileHash -LiteralPath $initialJarPath -Algorithm SHA256).Hash
+    if ($activeJarHash -ne $initialJarHash) {
+        throw 'Concurrent publication modified the artifact observed by the active consumer.'
+    }
+
+    $newJar = Get-RepositoryInventory | Where-Object { $_.RelativePath -eq $initialJar.RelativePath } | Select-Object -First 1
+    if ($null -eq $newJar) { throw 'Republished repository does not contain the artifact used by the new consumer.' }
+    $newJarPath = Join-Path $localRepo $newJar.RelativePath
+    $newConsumer = Start-RepositoryConsumer $newJarPath $newReleaseFile $newConsumerOutput $newConsumerError
+    $newDeadline = [DateTime]::UtcNow.AddSeconds(30)
+    do {
+        Start-Sleep -Milliseconds 100
+        if (Test-Path -LiteralPath $newConsumerOutput) {
+            if ((Get-Content -LiteralPath $newConsumerOutput -Raw) -match '(?m)^OPEN
+    $initialPaths = @($initialInventory | ForEach-Object RelativePath)
+    $rebuiltPaths = @($rebuiltInventory | ForEach-Object RelativePath)
+    $missing = @($initialPaths | Where-Object { $_ -notin $rebuiltPaths })
+    if ($missing.Count -gt 0) { throw "Concurrent publication left the repository incomplete. Missing: $($missing -join ', ')" }
+
+    Write-Host 'PASS: LRL-TAR-07 active consumer retained a consistent initial repository state during concurrent publication.'
+    Write-Host "PASS: republished repository contains $($rebuiltInventory.Count) files."
+} finally {
+    if ($null -ne $consumer -and -not $consumer.HasExited) {
+        try { New-Item -ItemType File -Force -Path $releaseFile | Out-Null; $consumer.WaitForExit(5000) | Out-Null } catch {}
+        if (-not $consumer.HasExited) { Stop-Process -Id $consumer.Id -Force }
+    }
+    if ($null -ne $newConsumer -and -not $newConsumer.HasExited) {
+        try { New-Item -ItemType File -Force -Path $newReleaseFile | Out-Null; $newConsumer.WaitForExit(5000) | Out-Null } catch {}
+        if (-not $newConsumer.HasExited) { Stop-Process -Id $newConsumer.Id -Force }
+    }
+    Pop-Location
+    if (Test-Path -LiteralPath $workDir) { Remove-Item -LiteralPath $workDir -Recurse -Force }
+}
+) { break }
+        }
+        if ($newConsumer.HasExited) { throw "New repository consumer exited early. stderr: $(Get-Content -LiteralPath $newConsumerError -Raw)" }
+    } while ([DateTime]::UtcNow -lt $newDeadline)
+    if (-not (Test-Path -LiteralPath $newConsumerOutput) -or (Get-Content -LiteralPath $newConsumerOutput -Raw) -notmatch '(?m)^OPEN
+    $initialPaths = @($initialInventory | ForEach-Object RelativePath)
+    $rebuiltPaths = @($rebuiltInventory | ForEach-Object RelativePath)
+    $missing = @($initialPaths | Where-Object { $_ -notin $rebuiltPaths })
+    if ($missing.Count -gt 0) { throw "Concurrent publication left the repository incomplete. Missing: $($missing -join ', ')" }
+
+    Write-Host 'PASS: LRL-TAR-07 active consumer retained a consistent initial repository state during concurrent publication.'
+    Write-Host "PASS: republished repository contains $($rebuiltInventory.Count) files."
+} finally {
+    if ($null -ne $consumer -and -not $consumer.HasExited) {
+        try { New-Item -ItemType File -Force -Path $releaseFile | Out-Null; $consumer.WaitForExit(5000) | Out-Null } catch {}
+        if (-not $consumer.HasExited) { Stop-Process -Id $consumer.Id -Force }
+    }
+    Pop-Location
+    if (Test-Path -LiteralPath $workDir) { Remove-Item -LiteralPath $workDir -Recurse -Force }
+}
+) {
+        throw 'Timed out waiting for the new repository consumer to open the republished artifact.'
+    }
+
     New-Item -ItemType File -Force -Path $releaseFile | Out-Null
     $consumer.WaitForExit()
     if ($consumer.ExitCode -ne 0) { throw "Active repository consumer observed an inconsistent initial state. stderr: $(Get-Content -LiteralPath $consumerError -Raw)" }
-    if ((Get-Content -LiteralPath $consumerOutput -Raw) -notmatch '(?m)^CONSISTENT$') { throw 'Active repository consumer did not report a consistent initial state.' }
+    if ((Get-Content -LiteralPath $consumerOutput -Raw) -notmatch '(?m)^CONSISTENT
+    $initialPaths = @($initialInventory | ForEach-Object RelativePath)
+    $rebuiltPaths = @($rebuiltInventory | ForEach-Object RelativePath)
+    $missing = @($initialPaths | Where-Object { $_ -notin $rebuiltPaths })
+    if ($missing.Count -gt 0) { throw "Concurrent publication left the repository incomplete. Missing: $($missing -join ', ')" }
+
+    Write-Host 'PASS: LRL-TAR-07 active consumer retained a consistent initial repository state during concurrent publication.'
+    Write-Host "PASS: republished repository contains $($rebuiltInventory.Count) files."
+} finally {
+    if ($null -ne $consumer -and -not $consumer.HasExited) {
+        try { New-Item -ItemType File -Force -Path $releaseFile | Out-Null; $consumer.WaitForExit(5000) | Out-Null } catch {}
+        if (-not $consumer.HasExited) { Stop-Process -Id $consumer.Id -Force }
+    }
+    Pop-Location
+    if (Test-Path -LiteralPath $workDir) { Remove-Item -LiteralPath $workDir -Recurse -Force }
+}
+) { throw 'Active repository consumer did not report a consistent initial state.' }
+
+    New-Item -ItemType File -Force -Path $newReleaseFile | Out-Null
+    $newConsumer.WaitForExit()
+    if ($newConsumer.ExitCode -ne 0) { throw "New repository consumer observed an inconsistent republished state. stderr: $(Get-Content -LiteralPath $newConsumerError -Raw)" }
+    if ((Get-Content -LiteralPath $newConsumerOutput -Raw) -notmatch '(?m)^CONSISTENT
+    $initialPaths = @($initialInventory | ForEach-Object RelativePath)
+    $rebuiltPaths = @($rebuiltInventory | ForEach-Object RelativePath)
+    $missing = @($initialPaths | Where-Object { $_ -notin $rebuiltPaths })
+    if ($missing.Count -gt 0) { throw "Concurrent publication left the repository incomplete. Missing: $($missing -join ', ')" }
+
+    Write-Host 'PASS: LRL-TAR-07 active consumer retained a consistent initial repository state during concurrent publication.'
+    Write-Host "PASS: republished repository contains $($rebuiltInventory.Count) files."
+} finally {
+    if ($null -ne $consumer -and -not $consumer.HasExited) {
+        try { New-Item -ItemType File -Force -Path $releaseFile | Out-Null; $consumer.WaitForExit(5000) | Out-Null } catch {}
+        if (-not $consumer.HasExited) { Stop-Process -Id $consumer.Id -Force }
+    }
+    Pop-Location
+    if (Test-Path -LiteralPath $workDir) { Remove-Item -LiteralPath $workDir -Recurse -Force }
+}
+) { throw 'New repository consumer did not report a consistent republished state.' }
 
     $rebuiltInventory = Get-RepositoryInventory
     $initialPaths = @($initialInventory | ForEach-Object RelativePath)
