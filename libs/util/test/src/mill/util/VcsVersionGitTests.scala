@@ -148,6 +148,32 @@ object VcsVersionGitTests extends TestSuite {
       assert(result.commitsSinceLastTag == 4)
     }
 
+    test("VCSV-CHAR-11 full-history checkout without fetched tags") {
+      val parent = os.temp.dir()
+      val upstream = initRepo()
+      commit(upstream, "A")
+      commit(upstream, "B")
+      git(upstream, "tag", "1.4.0-M2")
+      commit(upstream, "C")
+      commit(upstream, "D")
+
+      val bareUpstream = parent / "upstream.git"
+      os.proc("git", "clone", "--quiet", "--bare", upstream.toString, bareUpstream.toString)
+        .call(cwd = parent, stderr = os.Pipe)
+
+      val checkout = parent / "checkout"
+      os.proc("git", "clone", "--quiet", "--no-tags", bareUpstream.toString, checkout.toString)
+        .call(cwd = parent, stderr = os.Pipe)
+
+      assert(git(checkout, "rev-list", "--count", "HEAD") == "4")
+      assert(git(checkout, "tag", "--list").isEmpty)
+      assert(git(checkout, "ls-remote", "--tags", "origin", "refs/tags/1.4.0-M2").nonEmpty)
+
+      val result = state(checkout)
+      assert(result.lastTag.isEmpty)
+      assert(result.commitsSinceLastTag == 4)
+    }
+
     test("VCSV-CHAR-12 rebase includes upstream commits in the count") {
       val repo = initRepo()
       commit(repo, "A")
