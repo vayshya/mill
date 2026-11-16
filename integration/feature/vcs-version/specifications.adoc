@@ -116,6 +116,17 @@ first-parent-only count.
 +
 link:https://github.com/vayshya/mill/blob/fork-versioning/libs/util/test/src/mill/util/VcsVersionGitTests.scala[CV-11 test]
 
+* CV-14 — Merge of upstream history into the fork (characterization)
++
+Create a common history A-B-C with `base-release` on C. Advance the
+`upstream` branch with D and E, tag E as `upstream-release`, then create
+`fork-F` from C, merge `upstream` with a merge commit, and add `fork-G`.
+The current `git describe` selection is `upstream-release`; the current
+`git rev-list HEAD --not upstream-release --count` result is 3 because it
+counts `fork-F`, the merge commit, and `fork-G`.
++
+link:https://github.com/vayshya/mill/blob/fork-versioning/libs/util/test/src/mill/util/VcsVersionGitTests.scala[CV-14 test]
+
 === Regression requirements (desired behavior)
 
 These requirements describe the intended fork-versioning behavior. They are
