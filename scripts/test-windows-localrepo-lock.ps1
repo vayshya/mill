@@ -116,7 +116,7 @@ function Assert-LocalRepoHasNoOpenFiles([string] $Phase) {
         $message = "OPEN FILES DETECTED after $($Phase):" + [Environment]::NewLine +
             ($open -join [Environment]::NewLine) + [Environment]::NewLine +
             "Processes:" + [Environment]::NewLine + (Format-LockingProcesses $pidList)
-        throw $message
+        $failures.Add($message); Write-Host "FAIL: $message"
     } else { Write-Host "PASS: no open files anywhere under localRepo after $($Phase) ($($files.Count) files checked)." }
 }
 
@@ -155,6 +155,25 @@ function Assert-MillProcesses([string] $Phase) {
     if ($workers.Count -eq 0) { throw "No Mill JVM worker process was found after $Phase; worker lifecycle was not exercised." }
     return @($processes | ForEach-Object { "$($_.Kind):$($_.Id)" } | Sort-Object -Unique)
 }
+
+function Assert-MillClasspathsOutsideLocalRepo([string] $Phase) {
+    $needle = $localRepo.Replace('\', '/').ToLowerInvariant()
+    $usingLocalRepo = @(
+        Get-MillProcesses | Where-Object {
+            $_.CommandLine.Replace('\', '/').ToLowerInvariant().Contains($needle)
+        }
+    )
+    if ($usingLocalRepo.Count -gt 0) {
+        $details = $usingLocalRepo | ForEach-Object { "$($_.Kind) PID=$($_.Id): $($_.CommandLine)" }
+        $message = "Daemon/worker runtime classpaths still reference localRepo after $Phase:" +
+            [Environment]::NewLine + ($details -join [Environment]::NewLine)
+        $failures.Add($message)
+        Write-Host "FAIL: $message"
+    } else {
+        Write-Host "PASS: daemon and worker runtime classpaths are outside localRepo after $Phase."
+    }
+}
+
 function Assert-SameMillProcesses([string[]] $Expected, [string] $Phase) {
     $actual = @(Get-MillProcesses | ForEach-Object { "$($_.Kind):$($_.Id)" } | Sort-Object -Unique)
     $missing = @($Expected | Where-Object { $_ -notin $actual })
@@ -169,6 +188,7 @@ function Run-LauncherMatrix([string] $Launcher, [string] $Label) {
     Assert-LocalRepoHasNoOpenFiles "$Label / repeated show"
     [void](Invoke-Mill $Launcher @('__.compile') "$Label / compile to start Zinc workers")
     $processesBeforeClean = Assert-MillProcesses "$Label / compile"
+    Assert-MillClasspathsOutsideLocalRepo "$Label / compile"
     Assert-LocalRepoHasNoOpenFiles "$Label / daemon and workers active"
     [void](Invoke-Mill $Launcher @('clean', 'dist.raw.localRepo') "$Label / clean with daemon and workers alive")
     Assert-SameMillProcesses $processesBeforeClean "$Label / clean"
