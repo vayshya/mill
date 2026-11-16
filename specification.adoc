@@ -1,5 +1,0 @@
-= Specification
-
-== Requirements
-
-* link:integration/feature/vcs-version/requirements.adoc[VCS Versioning requirements]
