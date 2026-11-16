@@ -209,6 +209,60 @@ remains empty and all seven commits are counted.
 
 link:https://github.com/vayshya/mill/blob/fork-versioning/libs/util/test/src/mill/util/VcsVersionGitTests.scala[VCSV-CHAR-13 characterization test]
 
+
+
+=== Version string formatting (characterization)
+
+The following existing unit tests characterize `VcsVersion.State.format()`.
+They verify formatting of an already constructed state; they do not test Git
+tag discovery, state calculation, or the `millVersion` task wiring in
+`build.mill`.
+
+Source:
+link:https://github.com/vayshya/mill/blob/fork-versioning/libs/util/test/src/mill/util/VcsVersionTests.scala[VcsVersionTests.scala]
+
+* VCSV-CHAR-14 — Default formatting without and with a tag
++
+With the default format options, an untagged state is formatted using the
+fallback version `0.0.0`, followed by the commit count and abbreviated
+revision. This applies both when the commit count is zero and when it is
+nonzero. A tagged state includes the tag, commit count, and abbreviated
+revision. The tests also verify that a dirty hash is appended for untagged
+states, including when the commit count is zero, and for a tagged state.
+
+* VCSV-CHAR-15 — Tag prefix normalization and custom tag modifier
++
+By default, formatting strips a leading `v` from a tag. The formatter also
+accepts a `tagModifier` function; the test verifies a modifier that removes
+the leading `v` and appends it to the end of the tag.
+
+* VCSV-CHAR-16 — Suppress commit count with negative commitCountPad
++
+When `commitCountPad` is negative, the formatted version omits the commit
+count. The test verifies this both with and without a dirty hash. The
+abbreviated revision and dirty-hash formatting remain present.
+
+* VCSV-CHAR-17 — Append untagged suffix only after the exact tag
++
+When `untaggedSuffix` is `-SNAPSHOT`, a state exactly at its tag
+(`commitsSinceLastTag == 0`) is formatted without the suffix. A state with
+commits after the tag receives the suffix, both with and without a dirty
+hash.
+
+* VCSV-CHAR-18 — Formatting fallback state without VCS
++
+A state with no VCS marker, no tag, zero commits, and revision
+`no-vcs` formats as `0.0.0-0-no-vcs`.
+
+* VCSV-CHAR-19 — Configurable format presets
++
+The tests characterize two example configurations. The Mill configuration
+uses `dirtyHashDigits = 8`, `commitCountPad = 0`, and
+`countSep = "-"`. The Comfis configuration uses
+`dirtyHashDigits = 0`, `commitCountPad = 4`, and `countSep = "."`;
+the tests verify zero-padded commit counts and the corresponding abbreviated
+revision and dirty marker output.
+
 === Target requirements (TAR, desired behavior)
 
 These requirements describe the intended fork-versioning behavior. They are
