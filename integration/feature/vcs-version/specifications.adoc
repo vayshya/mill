@@ -172,11 +172,12 @@ link:https://github.com/vayshya/mill/blob/fork-versioning/libs/util/test/src/mil
 
 
 
-=== Regression requirements (desired behavior)
+=== Target requirements (desired behavior)
 
 These requirements describe the intended fork-versioning behavior. They are
-deliberately separate from the characterization cases above and are expected
-to fail until the implementation supports an explicit upstream baseline.
+deliberately separate from the characterization cases above. They specify
+the target behavior; they are not characterization requirements and are not
+to be added to the characterization test suite.
 
 * CV-12 — Exclude upstream commits after rebasing the fork
 +
@@ -187,9 +188,9 @@ the `upstream` ref remains at E. The calculated release tag remains
 `1.4.0-M2`, and only the two rebased fork commits count:
 `commitsSinceLastTag = 2`. The test must use an actual `git rebase`.
 +
-This desired behavior is not currently covered by a passing characterization
-test. The CV-12 test records the current `main` behavior instead: all four
-commits after the tag are counted.
+The characterization test for this scenario records the current behavior:
+all four commits after the tag are counted. An acceptance test must verify
+the target behavior specified above after the implementation is changed.
 
 * CV-13 — Use an upstream release tag when the checkout has no local tags
 +
@@ -200,9 +201,10 @@ no local tags while the upstream remote still advertises the release tag.
 The calculated state must use `1.4.0-M2` and count only the two fork-only
 commits.
 +
-This desired behavior is not currently covered by a passing characterization
-test. The CV-13 test records the current `main` behavior instead: the
-unfetched remote tag is not discovered, and all seven commits are counted.
+The characterization test for this scenario records the current behavior:
+the unfetched remote tag is not discovered, and all seven commits are
+counted. An acceptance test must verify the target behavior specified above
+after the implementation is changed.
 
 === Supported branch workflow
 
@@ -211,7 +213,7 @@ All development branches and forks must be rebased onto their original
 (upstream) branches; changes from an original branch must be incorporated
 with `git rebase`, not by merging that branch into the fork.
 
-The versioning requirements and regression tests assume that the fork is
-based on the latest applicable commit of its original branch, followed only
-by the fork's own commits.
+The target versioning requirements and their acceptance tests assume that
+the fork is based on the latest applicable commit of its original branch,
+followed only by the fork's own commits.
 
