@@ -194,6 +194,30 @@ object VcsVersionGitTests extends TestSuite {
       assert(result.commitsSinceLastTag == 2)
     }
 
+    test("CV-14 merge of upstream history into the fork") {
+      val repo = initRepo()
+      commit(repo, "A")
+      commit(repo, "B")
+      val common = commit(repo, "C")
+      git(repo, "tag", "base-release")
+      git(repo, "branch", "upstream")
+      git(repo, "checkout", "--quiet", "upstream")
+      commit(repo, "upstream-D")
+      commit(repo, "upstream-E")
+      git(repo, "tag", "upstream-release")
+      git(repo, "checkout", "--quiet", "-b", "fork", common)
+      commit(repo, "fork-F")
+      git(repo, "merge", "--no-ff", "--quiet", "upstream", "-m", "merge-upstream")
+      commit(repo, "fork-G")
+
+      val describedTag = git(repo, "describe", "--abbrev=0", "--tags")
+      val result = state(repo)
+      assert(describedTag == "upstream-release")
+      assert(result.lastTag == Some("upstream-release"))
+      // fork-F, the merge commit, and fork-G are not reachable from the selected tag.
+      assert(result.commitsSinceLastTag == 3)
+    }
+
     test("CV-11 divergent histories") {
       val repo = initRepo()
       val common = commit(repo, "common")
