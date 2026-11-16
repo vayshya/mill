@@ -9,10 +9,10 @@ $bootstrap = Join-Path $repoRoot $(if ($isWindowsPlatform) { 'mill.bat' } else {
 $rawLauncher = Join-Path $repoRoot 'out/dist/raw/executable.dest' $(if ($isWindowsPlatform) { 'mill.bat' } else { 'mill' })
 $localRepo = Join-Path $repoRoot 'out/dist/raw/localRepo.dest'
 
-function Invoke-Launcher([string] $Launcher, [string[]] $Args, [string] $Scenario, [bool] $AllowNonZero = $false) {
+function Invoke-Launcher([string] $Launcher, [string[]] $MillArgs, [string] $Scenario, [bool] $AllowNonZero = $false) {
     Write-Host ([Environment]::NewLine + '=== ' + $Scenario + ' ===')
     Write-Host "Launcher: $Launcher"
-    Write-Host "Command: $($Args -join ' ')"
+    Write-Host "Command: $($MillArgs -join ' ')"
     $lines = @(& $Launcher @Args 2>&1 | ForEach-Object { $_.ToString() })
     $code = $LASTEXITCODE
     $lines | ForEach-Object { Write-Host $_ }
@@ -41,14 +41,23 @@ function Stop-Mill([string] $Launcher) {
     $processes = @(Get-MillProcesses)
     if ($processes.Count -eq 0) { return }
     $ids = @($processes | ForEach-Object Id)
-    try { Invoke-Launcher $Launcher @('shutdown') 'shutdown' } catch {}
+    try { Invoke-Launcher $Launcher @('shutdown') 'shutdown' $true | Out-Null } catch {}
     $deadline = [DateTime]::UtcNow.AddSeconds(30)
     do {
         $remaining = @(Get-MillProcesses | Where-Object { $_.Id -in $ids })
         if ($remaining.Count -eq 0) { return }
         Start-Sleep -Milliseconds 250
     } while ([DateTime]::UtcNow -lt $deadline)
-    throw 'Mill processes did not exit during cleanup.'
+    if ($Launcher -ne $bootstrap) {
+        try { Invoke-Launcher $bootstrap @('shutdown') 'bootstrap shutdown fallback' $true | Out-Null } catch {}
+        $deadline = [DateTime]::UtcNow.AddSeconds(15)
+        do {
+            $remaining = @(Get-MillProcesses | Where-Object { $_.Id -in $ids })
+            if ($remaining.Count -eq 0) { return }
+            Start-Sleep -Milliseconds 250
+        } while ([DateTime]::UtcNow -lt $deadline)
+    }
+    throw "Mill processes did not exit during cleanup: $((@($remaining | ForEach-Object { "$($_.Kind):$($_.Id)" })) -join ', ')"
 }
 
 Push-Location $repoRoot
