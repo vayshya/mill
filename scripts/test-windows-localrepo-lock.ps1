@@ -116,7 +116,7 @@ function Assert-LocalRepoHasNoOpenFiles([string] $Phase) {
         $message = "OPEN FILES DETECTED after $($Phase):" + [Environment]::NewLine +
             ($open -join [Environment]::NewLine) + [Environment]::NewLine +
             "Processes:" + [Environment]::NewLine + (Format-LockingProcesses $pidList)
-        $failures.Add($message); Write-Host "FAIL: $message"
+        throw $message
     } else { Write-Host "PASS: no open files anywhere under localRepo after $($Phase) ($($files.Count) files checked)." }
 }
 
@@ -189,8 +189,18 @@ try {
     $buildCode = Invoke-Mill $bootstrapMill @('show', 'dist.raw.executable') 'bootstrap / build raw executable'
     if ($buildCode -ne 0) { throw 'Cannot run launcher matrix because dist.raw.executable did not build.' }
     if (-not (Test-Path -LiteralPath $rawMill -PathType Leaf)) { throw "Raw launcher not found: $rawMill" }
-    Run-LauncherMatrix $rawMill 'raw launcher'
-    Run-LauncherMatrix $bootstrapMill 'bootstrap launcher'
+    foreach ($entry in @(
+        @{ Launcher = $rawMill; Label = 'raw launcher' },
+        @{ Launcher = $bootstrapMill; Label = 'bootstrap launcher' }
+    )) {
+        try {
+            Run-LauncherMatrix $entry.Launcher $entry.Label
+        } catch {
+            $message = "$($entry.Label): $($_.Exception.Message)"
+            $failures.Add($message)
+            Write-Host "FAIL: $message"
+        }
+    }
     if ($failures.Count -gt 0) {
         throw ("Local repository open-handle regression failures ($($failures.Count)):" +
             [Environment]::NewLine + ' - ' + ($failures -join ([Environment]::NewLine + ' - ')))
