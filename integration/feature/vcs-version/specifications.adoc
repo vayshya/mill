@@ -62,14 +62,16 @@ link:https://github.com/vayshya/mill/blob/fork-versioning/libs/util/test/src/mil
 +
 The top-level `millVersion` task returns `SNAPSHOT` when the calculated
 state has no tag. This fallback is implemented in `build.mill`, not in the
-`VcsVersion` API. It is not covered by the `VcsVersion` unit tests.
+`VcsVersion` API. It is covered by the build integration test below, rather
+than by the `VcsVersion` unit tests.
 
 * VCSV-CHAR-08 — CI dirty-state handling
 +
 The top-level `millVersion` task clears `dirtyHash` when the `CI`
 environment variable is present; outside CI, the dirty hash is retained.
-This policy is implemented in `build.mill`, not in the `VcsVersion` API,
-and is not covered by the `VcsVersion` unit tests.
+This policy is implemented in `build.mill`, not in the `VcsVersion` API.
+It is covered by the build integration test below, rather than by the
+`VcsVersion` unit tests.
 
 === Upstream and tag discovery approaches to characterize
 
@@ -186,7 +188,15 @@ The failure occurs while checking the generated URL; this run does not
 attempt to download the Maven artifact and does not establish whether a
 SNAPSHOT artifact exists in Maven Central.
 
-Observed in
+The checkout behavior is reproduced deterministically by a local Git
+characterization test. It creates a tagged upstream history, makes a bare
+remote, and clones it with `--no-tags`. The test verifies that all four
+commits are present, no local tags are fetched, the remote still advertises
+the release tag, and `VcsVersion` reports no tag and counts all four commits.
+
+link:https://github.com/vayshya/mill/blob/fork-versioning/libs/util/test/src/mill/util/VcsVersionGitTests.scala[VCSV-CHAR-11 test]
+
+The original CI observation is
 link:https://github.com/vayshya/mill/actions/runs/43934491530[GitHub Actions Run #190],
 job `test-dist`.
 
