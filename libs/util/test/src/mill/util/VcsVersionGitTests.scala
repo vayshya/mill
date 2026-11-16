@@ -6,7 +6,7 @@ import utest.*
 object VcsVersionGitTests extends TestSuite {
 
   private def git(cwd: os.Path, args: String*): String =
-    os.proc("git", args*).call(cwd = cwd, stderr = os.Pipe).out.trim()
+    os.proc(Seq("git") ++ args).call(cwd = cwd, stderr = os.Pipe).out.trim()
 
   private def initRepo(): os.Path = {
     val repo = os.temp.dir()
