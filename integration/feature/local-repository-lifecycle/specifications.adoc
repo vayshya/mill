@@ -45,6 +45,8 @@ The key guarantees are:
 
 The cross-platform file-handle regression is implemented by link:test-local-repository-lock.ps1[the local repository lock test].
 
+The concurrent-consumer regression for `LRL-TAR-07` is implemented by link:test-local-repository-concurrency.ps1[the concurrent repository consumer test]. It keeps a real repository JAR open in a separate JVM while another Mill client cleans and republishes `dist.raw.localRepo`, then verifies the active consumer's initial state and the completeness of the republished repository.
+
 The test distinguishes bootstrap and raw launcher scenarios. The bootstrap scenario includes clean, rebuild, and daemon reuse. The raw-launcher scenario verifies file-handle release and physical deletion; its post-clean rebuild is deliberately excluded because that would also test a separate SNAPSHOT resolution path.
 
 
