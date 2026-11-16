@@ -182,11 +182,11 @@ function Assert-MillProcesses([string] $Phase) {
 }
 
 function Write-MillRuntimeClasspathDiagnostics([string] $Phase) {
-    $needle = $localRepo.Replace('\\', '/').ToLowerInvariant()
+    $needle = $localRepo.Replace('\', '/').ToLowerInvariant()
     $processes = @(Get-MillProcesses)
     Write-Host "Runtime classpath diagnostics after $Phase :"
     foreach ($process in $processes) {
-        $normalized = $process.CommandLine.Replace('\\', '/').ToLowerInvariant()
+        $normalized = $process.CommandLine.Replace('\', '/').ToLowerInvariant()
         $mentionsLocalRepo = $normalized.Contains($needle)
         if ($process.Kind -eq 'worker') {
             if ($mentionsLocalRepo) {
