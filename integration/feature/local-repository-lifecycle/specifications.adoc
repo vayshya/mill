@@ -30,6 +30,7 @@ The key guarantees are:
 * Repository JARs are not left open by the daemon or Zinc workers after resolution has completed.
 * Cleaning `dist.raw.localRepo` physically removes the directory without requiring the daemon or workers to terminate.
 * The bootstrap-launcher path can recreate a populated repository after clean and continue using the existing daemon.
+* Concurrent repository updates do not change the data observed by operations that are already using an earlier repository state.
 * The raw-launcher regression checks handle release and physical deletion independently of the unrelated post-clean daemon SNAPSHOT resolution path.
 
 == Verification
@@ -110,9 +111,25 @@ Verification:
 
 The Windows file-handle regression script already contains platform-specific lock probes and process-detail formatting; the assertions and failure output must continue to satisfy this requirement.
 
+=== LRL-007 — Concurrent repository updates must preserve the state observed by active consumers
+
+An operation that has started using the generated local repository must continue to observe a consistent repository state for the duration of that operation, even if another process or operation updates the repository concurrently.
+
+Publishing an updated repository state must not modify or remove files that are still needed by consumers of the previous state. A consumer must not observe a mixture of artifacts from the previous and updated states. The updated state must become visible as a complete state, rather than exposing a partially populated repository.
+
+The implementation may use immutable repository generations, atomic publication, or another mechanism, but it must provide these isolation guarantees. An earlier repository state may be physically removed only after no active consumer can still depend on it.
+
+Verification:
+* Prepare an initial repository state containing identifiable artifact versions.
+* Start a consumer that begins using the initial state and keep that operation active.
+* Concurrently publish an updated state containing distinguishable artifact versions.
+* Verify that the active consumer continues to observe the complete initial state and does not observe updated or mixed contents.
+* Start a new consumer after publication and verify that it observes the complete updated state.
+* Verify that files belonging to the initial state are not removed while the original consumer still depends on them, and can be reclaimed after that consumer finishes.
+
 == Scope boundaries
 
-* This feature covers the lifecycle of the generated local repository: use, release of file handles, cleanup, physical deletion, and supported recreation.
+* This feature covers the lifecycle of the generated local repository: use, release of file handles, cleanup, physical deletion, supported recreation, and isolation between concurrently used repository states.
 * Selection and configuration of artifact sources belong to `mill-repositories`.
 * External repository configuration and resolution of daemon SNAPSHOT artifacts after raw-repository deletion are not part of the raw-launcher handle regression.
 * Tag-related `dist.test` behavior is tracked separately.
