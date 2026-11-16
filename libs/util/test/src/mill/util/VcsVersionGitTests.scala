@@ -111,7 +111,9 @@ object VcsVersionGitTests extends TestSuite {
       commit(repo, "C")
       git(repo, "tag", "1.4.0-M2")
       commit(repo, "upstream-D")
-      commit(repo, "upstream-E")
+      val upstreamHead = commit(repo, "upstream-E")
+      git(repo, "branch", "upstream", upstreamHead)
+      git(repo, "checkout", "--quiet", "-b", "fork", upstreamHead)
       commit(repo, "fork-F")
       commit(repo, "fork-G")
 
@@ -129,6 +131,7 @@ object VcsVersionGitTests extends TestSuite {
       commit(repo, "upstream-D")
       val upstreamHead = commit(repo, "upstream-E")
       git(repo, "branch", "upstream", upstreamHead)
+      git(repo, "checkout", "--quiet", "-b", "fork", upstreamHead)
       commit(repo, "fork-F")
       commit(repo, "fork-G")
 
@@ -148,7 +151,6 @@ object VcsVersionGitTests extends TestSuite {
       commit(source, "A")
       commit(source, "B")
       commit(source, "C")
-      git(source, "tag", "1.4.0-M2")
       commit(source, "D")
       commit(source, "E")
       commit(source, "F")
