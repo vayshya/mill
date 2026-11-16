@@ -190,14 +190,14 @@ Observed in
 link:https://github.com/vayshya/mill/actions/runs/43934491530[GitHub Actions Run #190],
 job `test-dist`.
 
-=== Target requirements (desired behavior)
+=== Target requirements (TR, desired behavior)
 
 These requirements describe the intended fork-versioning behavior. They are
 deliberately separate from the characterization cases above. They specify
 the target behavior; they are not characterization requirements and are not
 to be added to the characterization test suite.
 
-* CV-12 — Exclude upstream commits after rebasing the fork
+* TR-01 — Exclude upstream commits after rebasing the fork
 +
 Create a fork branch from release-tagged commit C and add fork commits F and
 G. Advance the original `upstream` branch from C with commits D and E, then
@@ -206,11 +206,11 @@ the `upstream` ref remains at E. The calculated release tag remains
 `1.4.0-M2`, and only the two rebased fork commits count:
 `commitsSinceLastTag = 2`. The test must use an actual `git rebase`.
 +
-The characterization test for this scenario records the current behavior:
+Characterization requirement CV-12 and its test record the current behavior:
 all four commits after the tag are counted. An acceptance test must verify
 the target behavior specified above after the implementation is changed.
 
-* CV-13 — Use an upstream release tag when the checkout has no local tags
+* TR-02 — Use an upstream release tag when the checkout has no local tags
 +
 Create a local bare upstream repository containing release tag
 `1.4.0-M2` and commits after it. Clone it with `--no-tags`, configure the
@@ -219,7 +219,7 @@ no local tags while the upstream remote still advertises the release tag.
 The calculated state must use `1.4.0-M2` and count only the two fork-only
 commits.
 +
-The characterization test for this scenario records the current behavior:
+Characterization requirement CV-13 and its test record the current behavior:
 the unfetched remote tag is not discovered, and all seven commits are
 counted. An acceptance test must verify the target behavior specified above
 after the implementation is changed.
