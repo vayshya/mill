@@ -54,7 +54,7 @@ jobs:
 
 
   local-repo-concurrency:
-    name: Local repo concurrency (${{ matrix.os }}
+    name: Local repo concurrency (${{ matrix.os }})
     strategy:
       fail-fast: false
       matrix:
