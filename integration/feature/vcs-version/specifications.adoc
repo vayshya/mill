@@ -104,7 +104,7 @@ to the checkout. The VCS state has no last tag and counts all commits
 reachable from HEAD. The top-level `millVersion` fallback returns
 `SNAPSHOT`.
 +
-link:https://github.com/vayshya/mill/blob/fork-versioning/libs/util/test/src/mill/util/VcsVersionGitTests.scala#L121-L145[CV-10 test]
+link:https://github.com/vayshya/mill/blob/fork-versioning/libs/util/test/src/mill/util/VcsVersionGitTests.scala#L121-L146[CV-10 test]
 
 * CV-11 — Divergent histories
 +
@@ -114,7 +114,7 @@ existing `git describe` / `git rev-list` commands. The expected values must
 be asserted from the constructed graph rather than inferred from a
 first-parent-only count.
 +
-link:https://github.com/vayshya/mill/blob/fork-versioning/libs/util/test/src/mill/util/VcsVersionGitTests.scala#L147-L163[CV-11 test]
+link:https://github.com/vayshya/mill/blob/fork-versioning/libs/util/test/src/mill/util/VcsVersionGitTests.scala#L148-L164[CV-11 test]
 
 === Scope and constraints
 
