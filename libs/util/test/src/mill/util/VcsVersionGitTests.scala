@@ -142,6 +142,7 @@ object VcsVersionGitTests extends TestSuite {
       assert(git(checkout, "tag", "--list").isEmpty)
       assert(result.lastTag.isEmpty)
       assert(result.commitsSinceLastTag == 7)
+      assert(VcsVersion.formatMillVersion(result, isCi = false) == "SNAPSHOT")
     }
 
     test("CV-11 divergent histories") {
