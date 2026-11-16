@@ -17,8 +17,8 @@ function Invoke-Mill([string] $Launcher, [string[]] $MillArgs, [string] $Scenari
     $lines = @(& $Launcher @MillArgs 2>&1 | ForEach-Object { $_.ToString() })
     $code = $LASTEXITCODE
     $lines | ForEach-Object { Write-Host $_ }
-    if ($code -ne 0) { $failures.Add("$Scenario failed with exit code $code"); Write-Host "FAIL: $Scenario (exit code $code)" }
-    else { Write-Host "PASS: $Scenario" }
+    if ($code -ne 0) { throw "$Scenario failed with exit code $code" }
+    Write-Host "PASS: $Scenario"
     return $code
 }
 
@@ -99,6 +99,118 @@ function Format-LockingProcesses([int[]] $ProcessIds) {
     }
     return ($details -join [Environment]::NewLine)
 }
+
+function Get-MillProcesses {
+    if ($isWindowsPlatform) {
+        $all = Get-CimInstance Win32_Process -Filter "Name = 'java.exe' OR Name = 'javaw.exe'"
+        foreach ($p in $all) {
+            if ($p.CommandLine -match 'mill\.daemon\.MillDaemonMain') {
+                [pscustomobject]@{ Id = [int]$p.ProcessId; Kind = 'daemon'; CommandLine = $p.CommandLine }
+            } elseif ($p.CommandLine -match 'mill\.javalib\.worker\.MillJvmWorkerMain') {
+                [pscustomobject]@{ Id = [int]$p.ProcessId; Kind = 'worker'; CommandLine = $p.CommandLine }
+            }
+        }
+    } else {
+        foreach ($line in @(& ps -eo pid=,args=)) {
+            if ($line -match '^\s*(\d+)\s+(.*)
+    if (-not (Test-Path -LiteralPath $localRepo -PathType Container)) { Write-Host "PASS: localRepo does not exist after $Phase."; return }
+    $files = @(Get-ChildItem -LiteralPath $localRepo -File -Recurse)
+    $open = [System.Collections.Generic.List[string]]::new()
+    $allPids = [System.Collections.Generic.HashSet[int]]::new()
+    foreach ($file in $files) {
+        $pids = @(Get-LockingProcessIds $file.FullName)
+        if ($pids.Count -gt 0) {
+            $processDetails = foreach ($processId in $pids) {
+                if ($isWindowsPlatform) {
+                    $p = Get-CimInstance Win32_Process -Filter "ProcessId = $processId" -ErrorAction SilentlyContinue
+                    if ($null -eq $p) { "PID $processId (exited during inspection)" }
+                    else { "PID $processId $($p.Name): $($p.CommandLine)" }
+                } else {
+                    $p = @(& ps -p $processId -o pid=,comm=,args= 2>$null)
+                    if ($p.Count) { $p -join ' ' } else { "PID $processId (exited during inspection)" }
+                }
+            }
+            $open.Add($file.FullName + [Environment]::NewLine + "  " + ($processDetails -join ([Environment]::NewLine + "  ")))
+            foreach ($processId in $pids) { [void]$allPids.Add([int]$processId) }
+        }
+    }
+    if ($open.Count -gt 0) {
+        $pidList = @($allPids)
+        $message = "OPEN FILES DETECTED after $($Phase):" + [Environment]::NewLine +
+            ($open -join [Environment]::NewLine) + [Environment]::NewLine +
+            "Processes:" + [Environment]::NewLine + (Format-LockingProcesses $pidList)
+        $failures.Add($message); Write-Host "FAIL: $message"
+    } else { Write-Host "PASS: no open files anywhere under localRepo after $($Phase) ($($files.Count) files checked)." }
+}
+function Run-LauncherMatrix([string] $Launcher, [string] $Label) {
+    [void](Invoke-Mill $Launcher @('show', 'dist.raw.localRepo') "$Label / initial show")
+    Assert-LocalRepoHasNoOpenFiles "$Label / initial show"
+    [void](Invoke-Mill $Launcher @('show', 'dist.raw.localRepo') "$Label / repeated show (daemon reuse)")
+    Assert-LocalRepoHasNoOpenFiles "$Label / repeated show"
+
+    # Force Zinc worker JVMs to start; showing localRepo alone does not test worker classpaths.
+    [void](Invoke-Mill $Launcher @('__.compile') "$Label / compile to start Zinc workers")
+    $processesBeforeClean = Assert-MillProcesses "$Label / compile"
+    Assert-LocalRepoHasNoOpenFiles "$Label / daemon and workers active"
+
+    [void](Invoke-Mill $Launcher @('clean', 'dist.raw.localRepo') "$Label / clean with daemon and workers alive")
+    Assert-SameMillProcesses $processesBeforeClean "$Label / clean"
+    if (Test-Path -LiteralPath $localRepo) { throw "$Label / clean succeeded but localRepo still exists: $localRepo" }
+    Write-Host "PASS: localRepo was physically removed while daemon and workers remained alive."
+
+    [void](Invoke-Mill $Launcher @('show', 'dist.raw.localRepo') "$Label / rebuild after clean")
+    if (-not (Test-Path -LiteralPath $localRepo -PathType Container)) { throw "$Label / rebuild did not recreate localRepo." }
+    $rebuiltFiles = @(Get-ChildItem -LiteralPath $localRepo -File -Recurse)
+    if ($rebuiltFiles.Count -eq 0) { throw "$Label / rebuilt localRepo is empty." }
+    Assert-LocalRepoHasNoOpenFiles "$Label / rebuild after clean"
+
+    [void](Invoke-Mill $Launcher @('show', 'dist.raw.localRepo') "$Label / reuse daemon after rebuild")
+    Assert-SameMillProcesses $processesBeforeClean "$Label / reuse after rebuild"
+    Assert-LocalRepoHasNoOpenFiles "$Label / reuse after rebuild"
+}
+Push-Location $repoRoot
+try {
+    Write-Host "OS: $([System.Runtime.InteropServices.RuntimeInformation]::OSDescription)"
+    $buildCode = Invoke-Mill $bootstrapMill @('show', 'dist.raw.executable') 'bootstrap / build raw executable'
+    if ($buildCode -ne 0) { throw 'Cannot run launcher matrix because dist.raw.executable did not build.' }
+    if (-not (Test-Path -LiteralPath $rawMill -PathType Leaf)) { throw "Raw launcher not found: $rawMill" }
+    Run-LauncherMatrix $rawMill 'raw launcher'
+    Run-LauncherMatrix $bootstrapMill 'bootstrap launcher'
+    if ($failures.Count -gt 0) {
+        throw ("Local repository open-handle regression failures ($($failures.Count)):" +
+            [Environment]::NewLine + ' - ' + ($failures -join ([Environment]::NewLine + ' - ')))
+    }
+    Write-Host 'PASS: all launcher scenarios completed with no open files under localRepo at any checkpoint.'
+} finally { Pop-Location }
+) {
+                $processId = [int]$Matches[1]
+                $commandLine = $Matches[2]
+                if ($commandLine -match 'mill\.daemon\.MillDaemonMain') {
+                    [pscustomobject]@{ Id = $processId; Kind = 'daemon'; CommandLine = $commandLine }
+                } elseif ($commandLine -match 'mill\.javalib\.worker\.MillJvmWorkerMain') {
+                    [pscustomobject]@{ Id = $processId; Kind = 'worker'; CommandLine = $commandLine }
+                }
+            }
+        }
+    }
+}
+function Assert-MillProcesses([string] $Phase) {
+    $processes = @(Get-MillProcesses)
+    $daemons = @($processes | Where-Object Kind -eq 'daemon')
+    $workers = @($processes | Where-Object Kind -eq 'worker')
+    Write-Host "Mill processes after $Phase : daemon=$($daemons.Count), workers=$($workers.Count)"
+    $processes | ForEach-Object { Write-Host "  $($_.Kind) PID=$($_.Id) $($_.CommandLine)" }
+    if ($daemons.Count -eq 0) { throw "No Mill daemon process was found after $Phase." }
+    if ($workers.Count -eq 0) { throw "No Mill JVM worker process was found after $Phase; worker lifecycle was not exercised." }
+    return @($processes | ForEach-Object { "$($_.Kind):$($_.Id)" } | Sort-Object -Unique)
+}
+function Assert-SameMillProcesses([string[]] $Expected, [string] $Phase) {
+    $actual = @(Get-MillProcesses | ForEach-Object { "$($_.Kind):$($_.Id)" } | Sort-Object -Unique)
+    $missing = @($Expected | Where-Object { $_ -notin $actual })
+    if ($missing.Count -gt 0) { throw "Mill processes exited or were replaced during $Phase : $($missing -join ', ')." }
+    Write-Host "PASS: original daemon and worker PIDs are still alive after $Phase."
+}
+
 function Assert-LocalRepoHasNoOpenFiles([string] $Phase) {
     if (-not (Test-Path -LiteralPath $localRepo -PathType Container)) { Write-Host "PASS: localRepo does not exist after $Phase."; return }
     $files = @(Get-ChildItem -LiteralPath $localRepo -File -Recurse)
