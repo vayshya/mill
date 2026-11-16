@@ -151,11 +151,3 @@ The versioning requirements and regression tests assume that the fork is
 based on the latest applicable commit of its original branch, followed only
 by the fork's own commits.
 
-=== Scope and constraints
-
-* These tests characterize the current behavior; they must not silently
-  encode the proposed corrected versioning algorithm as current behavior.
-* Regression requirements for the corrected algorithm must be specified
-  separately after the current behavior is captured.
-* Tests should use temporary repositories and local refs only.
-* Do not run GitHub Actions or CI as part of adding this specification.
