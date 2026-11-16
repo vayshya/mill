@@ -1,4 +1,4 @@
-= Local Repository Lifecycle
+= Local Repository Lifecycle Specifications
 
 == Overview
 
