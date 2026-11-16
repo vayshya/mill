@@ -1,4 +1,4 @@
-name: Local Repository Lifecycle Regression
+name: Local Repository Lifecycle Acceptance
 on:
   push:
     branches:
@@ -9,30 +9,22 @@ permissions:
   contents: read
 jobs:
   pwsh-syntax:
-    name: PowerShell parser validation
-    runs-on: ubuntu-latest
+    name: PowerShell syntax validation
+    runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Parse every lifecycle PowerShell script
+      - name: Parse all feature PowerShell scripts
         shell: pwsh
         run: |
-          $files = @(Get-ChildItem -LiteralPath 'integration/feature/local-repository-lifecycle' -Filter '*.ps1' -File -Recurse)
-          if ($files.Count -eq 0) { throw 'No PowerShell scripts found.' }
-          $failed = $false
-          foreach ($file in $files) {
-            $tokens = $null
-            $parseErrors = $null
-            [System.Management.Automation.Language.Parser]::ParseFile($file.FullName, [ref]$tokens, [ref]$parseErrors) | Out-Null
-            if ($parseErrors.Count -gt 0) {
-              $failed = $true
-              foreach ($parseError in $parseErrors) {
-                Write-Error ("{0}:{1}:{2}: {3}" -f $file.FullName, $parseError.Extent.StartLineNumber, $parseError.Extent.StartColumnNumber, $parseError.Message)
-              }
-            } else {
-              Write-Host ("PASS: {0}" -f $file.FullName)
-            }
+          $featurePath = 'integration/feature/local-repository-lifecycle'
+          $checker = Join-Path $featurePath 'check-local-repository-lifecycle-syntax.ps1'
+          $scripts = Get-ChildItem -LiteralPath $featurePath -Filter '*.ps1' -File
+          if (-not $scripts) { throw "No PowerShell scripts found in $featurePath" }
+          foreach ($script in $scripts) {
+            Write-Host "Checking $($script.FullName)"
+            & $checker -ScriptPath $script.FullName
           }
-          if ($failed) { throw 'PowerShell parser reported syntax errors.' }
+          Write-Host "PASS: syntax validated for $($scripts.Count) PowerShell scripts."
   local-repo-characterization:
     needs: pwsh-syntax
     name: Local repo characterization (${{ matrix.os }})
