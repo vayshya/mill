@@ -1,5 +1,7 @@
 package mill.util
 
+import java.lang.reflect.{InvocationHandler, Proxy}
+
 import mill.api.Logger
 import utest.*
 
@@ -23,10 +25,34 @@ object VcsVersionGitTests extends TestSuite {
     git(repo, "rev-parse", "HEAD")
   }
 
-  private def state(repo: os.Path): VcsVersion.State =
-    new VcsVersion {
-      override def vcsBasePath: os.Path = repo
-    }.calcVcsState(Logger.DummyLogger)
+  private def state(repo: os.Path): VcsVersion.State = {
+    // VcsVersion extends Module, so it cannot be instantiated directly in a test source.
+    // A proxy supplies the test repository path and delegates the trait's default methods.
+    val handler = new InvocationHandler {
+      override def invoke(
+          proxy: Any,
+          method: java.lang.reflect.Method,
+          args: Array[AnyRef]
+      ): AnyRef = {
+        if (method.getName == "vcsBasePath") repo
+        else if (method.isDefault) {
+          InvocationHandler.invokeDefault(proxy, method, Option(args).getOrElse(Array.empty): _*)
+        } else {
+          throw new UnsupportedOperationException(s"Unexpected VcsVersion method: ${method.getName}")
+        }
+      }
+    }
+
+    val version = Proxy
+      .newProxyInstance(
+        classOf[VcsVersion].getClassLoader,
+        Array(classOf[VcsVersion]),
+        handler
+      )
+      .asInstanceOf[VcsVersion]
+
+    version.calcVcsState(Logger.DummyLogger)
+  }
 
   val tests: Tests = Tests {
     test("CV-01 exact tag at HEAD") {
