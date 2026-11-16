@@ -8,9 +8,9 @@ $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '../../..')).Path
 $launcher = Join-Path $repoRoot $(if ($isWindowsPlatform) { 'mill.bat' } else { 'mill' })
 $localRepo = Join-Path $repoRoot 'out/dist/raw/localRepo.dest'
 
-function Invoke-Mill([string[]] $Args, [string] $Scenario) {
+function Invoke-Mill([string[]] $MillArgs, [string] $Scenario) {
     Write-Host ([Environment]::NewLine + '=== ' + $Scenario + ' ===')
-    Write-Host "Command: $($Args -join ' ')"
+    Write-Host "Command: $($MillArgs -join ' ')"
     $lines = @(& $launcher @Args 2>&1 | ForEach-Object { $_.ToString() })
     $code = $LASTEXITCODE
     $lines | ForEach-Object { Write-Host $_ }
