@@ -205,7 +205,7 @@ function Write-MillRuntimeClasspathDiagnostics([string] $Phase) {
         $mentionsLocalRepo = $normalized.Contains($needle)
         if ($process.Kind -eq 'worker') {
             if ($mentionsLocalRepo) {
-                Write-Host "  worker PID=$($process.Id): command line references localRepo."
+                throw "Zinc worker PID $($process.Id) has explicit subprocess classpath entries from the temporary localRepo after $Phase."
             } else {
                 Write-Host "  worker PID=$($process.Id): command line does not reference localRepo."
             }
