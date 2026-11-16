@@ -132,7 +132,7 @@ trait VcsVersion extends Module {
 
   def calcVcsState(
       logger: Logger,
-      basePath: os.Path = basePath
+      basePath: os.Path = vcsBasePath
   ): VcsVersion.State = {
     val curHeadRaw =
       try {
