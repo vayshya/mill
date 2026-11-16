@@ -298,6 +298,15 @@ try {
             $message = "$($entry.Label): $($_.Exception.Message)"
             $failures.Add($message)
             Write-Host "FAIL: $message"
+            if ($entry.Label -eq 'raw launcher') {
+                try {
+                    Assert-MillDaemonClasspathDoesNotReferenceLocalRepo "$($entry.Label) / failed initial show diagnostics"
+                } catch {
+                    $diagnostic = "$($entry.Label) runner classpath: $($_.Exception.Message)"
+                    $failures.Add($diagnostic)
+                    Write-Host "FAIL: $diagnostic"
+                }
+            }
         } finally {
             # Each launcher scenario intentionally keeps its daemon and Zinc
             # workers alive through clean. Shut them down only after that
