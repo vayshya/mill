@@ -152,7 +152,7 @@ trait JvmWorkerModule extends OfflineSupportModule with CoursierModule {
   def internalWorkerClassLoader: Worker[ClassLoader & AutoCloseable] = Task.Worker {
     val workerClasspath = classpath().map(_.path)
     Task.log.debug(
-      s"JvmWorker internal classloader classpath:\\n\${workerClasspath.mkString("\\n")}"
+      s"JvmWorker internal classloader classpath:\n${workerClasspath.mkString("\n")}"
     )
     mill.util.Jvm.createClassLoader(workerClasspath, getClass.getClassLoader)
   }
