@@ -14,7 +14,11 @@ function Invoke-MillAndCapture([string[]] $MillArgs) {
     return @{ ExitCode = $code; Output = ($lines -join [Environment]::NewLine) }
 }
 function Test-LocalRepoLockError([string] $Output) {
-    return $Output -match '(?is)java\.nio\.file\FileSystemException:.*dist[\\/]raw[\\/]localRepo\.dest.*mill-contrib-buildinfo_3-SNAPSHOT\.jar'
+    # Use literal fragments: PowerShell single-quoted strings preserve backslashes,
+    # and a regex escape before the F in FileSystemException is invalid in .NET.
+    return $Output.Contains('java.nio.file.FileSystemException:') -and
+        $Output.Contains('localRepo.dest') -and
+        $Output.Contains('mill-contrib-buildinfo_3-SNAPSHOT.jar')
 }
 function Get-WindowsLockingProcessIds([string] $Path) {
     if (-not ('MillFileLockProbe' -as [type])) {
