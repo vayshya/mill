@@ -18,44 +18,60 @@ statements of the desired corrected behavior.
 +
 When HEAD is exactly tagged, `git describe --exact-match --tags --always HEAD`
 provides the tag. The calculated commit count is zero.
++
+link:https://github.com/vayshya/mill/blob/fork-versioning/libs/util/test/src/mill/util/VcsVersionGitTests.scala#L30-L38[CV-01 test]
 
 * CV-02 — HEAD after a reachable tag
 +
 When HEAD is not exactly tagged, the implementation selects a tag using
 `git describe --abbrev=0 --tags`. It then counts commits reachable from HEAD
 but not reachable from that tag using `git rev-list HEAD --not <tag> --count`.
++
+link:https://github.com/vayshya/mill/blob/fork-versioning/libs/util/test/src/mill/util/VcsVersionGitTests.scala#L40-L50[CV-02 test]
 
 * CV-03 — No reachable tags
 +
 When no tag can be described, `lastTag` is empty and the commit count is the
 number of commits reachable from HEAD.
++
+link:https://github.com/vayshya/mill/blob/fork-versioning/libs/util/test/src/mill/util/VcsVersionGitTests.scala#L52-L61[CV-03 test]
 
 * CV-04 — Tag selection
 +
 Tag selection is delegated to Git's `git describe` behavior. It is not based
 on commit timestamps or on a separately computed upstream release baseline.
++
+link:https://github.com/vayshya/mill/blob/fork-versioning/libs/util/test/src/mill/util/VcsVersionGitTests.scala#L63-L77[CV-04 test]
 
 * CV-05 — Dirty working tree
 +
 The dirty hash is derived from the textual output of `git diff HEAD`.
 An empty diff produces no dirty hash.
++
+link:https://github.com/vayshya/mill/blob/fork-versioning/libs/util/test/src/mill/util/VcsVersionGitTests.scala#L79-L92[CV-05 test]
 
 * CV-06 — No Git repository
 +
 If resolving HEAD fails because the directory is not a Git repository, the
 returned state has revision `no-vcs`, no tag, zero commits, no dirty hash,
 and no VCS marker.
++
+link:https://github.com/vayshya/mill/blob/fork-versioning/libs/util/test/src/mill/util/VcsVersionGitTests.scala#L94-L103[CV-06 test]
 
 * CV-07 — Mill version fallback
 +
 The top-level `millVersion` task returns `SNAPSHOT` when
 `VcsVersion.calcVcsState` returns no tag. This fallback is separate from
 `VcsVersion.State.format`, which can format an untagged state.
++
+link:https://github.com/vayshya/mill/blob/fork-versioning/libs/util/test/src/mill/util/VcsVersionTests.scala#L23-L26[CV-07 test]
 
 * CV-08 — CI dirty-state handling
 +
 When `CI` is present in the environment, `millVersion` formats the state
 after clearing `dirtyHash`. Outside CI, the dirty hash is retained.
++
+link:https://github.com/vayshya/mill/blob/fork-versioning/libs/util/test/src/mill/util/VcsVersionTests.scala#L28-L32[CV-08 test]
 
 === Reproduction scenarios
 
@@ -78,6 +94,8 @@ Let C carry tag `1.4.0-M2`, let D and E be upstream commits, and let F and G
 be fork-only commits. With all commits reachable and no other tags, the
 current implementation reports `lastTag = Some("1.4.0-M2")` and
 `commitsSinceLastTag = 4`. Thus D and E are included in the count.
++
+link:https://github.com/vayshya/mill/blob/fork-versioning/libs/util/test/src/mill/util/VcsVersionGitTests.scala#L105-L119[CV-09 test]
 
 * CV-10 — Fork checkout without available tags
 +
@@ -85,6 +103,8 @@ Create a repository containing the history above but with no tags available
 to the checkout. The VCS state has no last tag and counts all commits
 reachable from HEAD. The top-level `millVersion` fallback returns
 `SNAPSHOT`.
++
+link:https://github.com/vayshya/mill/blob/fork-versioning/libs/util/test/src/mill/util/VcsVersionGitTests.scala#L121-L145[CV-10 test]
 
 * CV-11 — Divergent histories
 +
@@ -93,6 +113,8 @@ ancestor, and characterize the selected tag and count returned by the
 existing `git describe` / `git rev-list` commands. The expected values must
 be asserted from the constructed graph rather than inferred from a
 first-parent-only count.
++
+link:https://github.com/vayshya/mill/blob/fork-versioning/libs/util/test/src/mill/util/VcsVersionGitTests.scala#L147-L163[CV-11 test]
 
 === Scope and constraints
 
