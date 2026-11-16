@@ -1,3 +1,10 @@
+# Characterization coverage:
+# - LRL-CHAR-01: record Windows Coursier-cache-mediated classpath provenance.
+# - LRL-CHAR-02: record the Windows raw-launcher startup-command anomaly.
+# - LRL-CHAR-03: record Linux daemon/worker classpath observations.
+# - LRL-CHAR-04: keep the original daemon and workers alive during clean.
+# - LRL-CHAR-05: record the OS-specific clean outcome.
+# - LRL-CHAR-06: record macOS outcome independently without assuming success.
 # Characterization test for the current raw-launcher local repository lifecycle.
 # Unlike the target regression, this test records the currently observed behavior:
 # raw daemon classpath provenance and OS-specific deletion while daemon/workers live.
