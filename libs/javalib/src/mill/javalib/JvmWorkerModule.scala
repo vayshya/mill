@@ -14,7 +14,7 @@ import scala.annotation.nowarn
 /**
  * A default implementation of [[JvmWorkerModule]]
  */
-object JvmWorkerModule extends ExternalModule with JvmWorkerModule with CoursierModule {
+object JvmWorkerModule extends ExternalModule with JvmWorkerModule {
   lazy val millDiscover = Discover[this.type]
 }
 
@@ -22,6 +22,19 @@ object JvmWorkerModule extends ExternalModule with JvmWorkerModule with Coursier
  * A module managing an in-memory Zinc Scala incremental compiler
  */
 trait JvmWorkerModule extends OfflineSupportModule with CoursierModule {
+
+  // Zinc workers and their classloaders can outlive a task evaluation. Copy
+  // artifacts from temporary file repositories into the stable Coursier cache
+  // before exposing them on a worker classpath.
+  override def coursierCacheCustomizer
+      : Task[Option[
+        coursier.cache.FileCache[coursier.util.Task] => coursier.cache.FileCache[coursier.util.Task]
+      ]] =
+    Task.Anon {
+      Some((cache: coursier.cache.FileCache[coursier.util.Task]) =>
+        cache.copy(localArtifactsShouldBeCached = true)
+      )
+    }
 
   def classpath: T[Seq[PathRef]] = Task {
     defaultResolver().classpath(Seq(
