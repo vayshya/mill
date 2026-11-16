@@ -11,7 +11,7 @@ $localRepo = Join-Path $repoRoot 'out/dist/raw/localRepo.dest'
 function Invoke-Mill([string[]] $MillArgs, [string] $Scenario) {
     Write-Host ([Environment]::NewLine + '=== ' + $Scenario + ' ===')
     Write-Host "Command: $($MillArgs -join ' ')"
-    $lines = @(& $launcher @Args 2>&1 | ForEach-Object { $_.ToString() })
+    $lines = @(& $launcher @MillArgs 2>&1 | ForEach-Object { $_.ToString() })
     $code = $LASTEXITCODE
     $lines | ForEach-Object { Write-Host $_ }
     if ($code -ne 0) { throw "$Scenario failed with exit code $code" }
