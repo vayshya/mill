@@ -211,6 +211,28 @@ function Assert-SameMillProcesses([string[]] $Expected, [string] $Phase) {
     Write-Host "PASS: original daemon and worker PIDs are still alive after $Phase."
 }
 
+function Stop-MillProcesses([string] $Launcher, [string] $Phase) {
+    $processes = @(Get-MillProcesses)
+    if ($processes.Count -eq 0) {
+        Write-Host "INFO: no Mill daemon or workers remain after $Phase."
+        return
+    }
+
+    $processIds = @($processes | ForEach-Object { $_.Id })
+    [void](Invoke-Mill $Launcher @('shutdown') "$Phase / shutdown")
+    $deadline = [DateTime]::UtcNow.AddSeconds(30)
+    do {
+        $remaining = @(Get-MillProcesses | Where-Object { $_.Id -in $processIds })
+        if ($remaining.Count -eq 0) { break }
+        Start-Sleep -Milliseconds 250
+    } while ([DateTime]::UtcNow -lt $deadline)
+
+    if ($remaining.Count -gt 0) {
+        throw "Mill processes did not exit after $Phase / shutdown: $($remaining | ForEach-Object { "$($_.Kind):$($_.Id)" } -join ', ')."
+    }
+    Write-Host "PASS: daemon and workers exited after $Phase / shutdown; the next launcher scenario starts cleanly."
+}
+
 function Run-LauncherMatrix([string] $Launcher, [string] $Label, [bool] $VerifyRebuildAfterClean = $true) {
     [void](Invoke-Mill $Launcher @('show', 'dist.raw.localRepo') "$Label / initial show")
     Assert-LocalRepoHasNoOpenFiles "$Label / initial show"
@@ -260,6 +282,18 @@ try {
             $message = "$($entry.Label): $($_.Exception.Message)"
             $failures.Add($message)
             Write-Host "FAIL: $message"
+        } finally {
+            # Each launcher scenario intentionally keeps its daemon and Zinc
+            # workers alive through clean. Shut them down only after that
+            # scenario has completed, so the next launcher cannot inherit
+            # file handles to the shared dist.raw.localRepo output directory.
+            try {
+                Stop-MillProcesses $entry.Launcher $entry.Label
+            } catch {
+                $message = "$($entry.Label) isolation cleanup: $($_.Exception.Message)"
+                $failures.Add($message)
+                Write-Host "FAIL: $message"
+            }
         }
     }
     if ($failures.Count -gt 0) {
