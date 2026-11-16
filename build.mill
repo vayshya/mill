@@ -30,10 +30,10 @@ import mill.androidlib.AndroidSdkModule
 
 def millVersion: T[String] = Task.Input {
   // Fall back to SNAPSHOT without a tag and ignore dirty state in CI.
-  VcsVersion.formatMillVersion(
-    VcsVersion.calcVcsState(Task.log),
-    isCi = Task.env.contains("CI")
-  )
+  val state = VcsVersion.calcVcsState(Task.log)
+  if (state.lastTag.isEmpty) "SNAPSHOT"
+  else if (Task.env.contains("CI")) state.copy(dirtyHash = None).format()
+  else state.format()
 }
 
 def latestUnstableVersion = Task.Input {
