@@ -48,6 +48,24 @@ The cross-platform file-handle regression is implemented by link:test-local-repo
 The test distinguishes bootstrap and raw launcher scenarios. The bootstrap scenario includes clean, rebuild, and daemon reuse. The raw-launcher scenario verifies file-handle release and physical deletion; its post-clean rebuild is deliberately excluded because that would also test a separate SNAPSHOT resolution path.
 
 
+== Characterization
+
+The following observations describe the implementation at the time these tests were added. They are intentionally separate from the target lifecycle guarantees below: a characterization test records the current behavior and must not be interpreted as approval of that behavior.
+
+=== Observed raw-launcher behavior
+
+* On the investigated Windows run, the raw daemon JVM command line contained runner artifacts resolved from `dist.raw.localRepo` through a path under the Coursier file cache. The encoded/cache path did not begin with the local repository directory, so checking only whether the resolved file path starts with the repository path misses its local-repository origin.
+* On the investigated Linux run, the raw daemon runtime classpath contained JARs from `dist.raw.localRepo`. Zinc workers were also observed with local-repository artifacts on their runtime classpaths.
+* The daemon and Zinc workers are long-lived across client commands. The characterization must keep both alive while checking the result of `clean`; shutting them down first would hide the lifecycle behavior.
+* On Windows, the investigated raw-launcher clean failed while a live process retained a repository artifact. On Linux, filesystem deletion succeeded even though the daemon/workers remained alive; this does not establish that those processes can resolve the deleted local SNAPSHOT again.
+* The investigated macOS run did not complete, so no prior macOS outcome is claimed here. The characterization job records its result independently.
+
+=== Characterization test
+
+`characterize-local-repository-lifecycle.ps1` reproduces the raw-launcher sequence, records daemon and Zinc worker command lines, and runs `clean dist.raw.localRepo` while the same processes remain alive. It expects the currently observed Windows-versus-POSIX deletion behavior and reports whether daemon/worker command lines expose direct or Coursier-cache-mediated local repository paths.
+
+These assertions are characterization only. When implementation behavior changes, update this section and the characterization expectations deliberately; do not weaken or repurpose the target requirements to make the characterization pass.
+
 == Requirements
 
 === LRL-001 — Repository files must not remain locked after resolution
