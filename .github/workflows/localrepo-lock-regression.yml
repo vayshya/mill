@@ -29,5 +29,5 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y lsof
         shell: bash
       - name: Check all launcher and lifecycle variants
-        run: pwsh -NoProfile -File scripts/test-windows-localrepo-lock.ps1
+        run: pwsh -NoProfile -File integration/feature/local-repository-lifecycle/test-local-repository-lock.ps1
         shell: pwsh
