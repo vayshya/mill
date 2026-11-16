@@ -17,9 +17,10 @@ This feature is concerned with the complete lifecycle rather than repository sel
 == Relationship to other features
 
 * `mill-repositories` defines which artifact repositories Mill uses to resolve dependencies.
-* `local-repository-lifecycle` defines how Mill's generated local repository is used, released, cleaned, deleted, and recreated.
+* `zinc-incremental-compilation` uses Zinc workers for incremental Scala compilation. Those workers are consumers of artifacts in the generated local repository and may outlive an individual Mill command. Their use of repository artifacts is therefore an important lifecycle scenario: they must not retain file handles that prevent cleanup, or observe files changing underneath an operation already in progress.
+* `local-repository-lifecycle` defines how Mill's generated local repository is used, released, cleaned, deleted, and recreated, including safe behavior when consumers such as Zinc workers are still active.
 
-These features are related but have different responsibilities. A repository configuration test must not be used as a substitute for lifecycle and file-handle regression coverage.
+These features are related but have different responsibilities. The Zinc feature provides a relevant consumer scenario; the local repository lifecycle feature owns the repository cleanup and concurrent-update guarantees. A repository configuration test must not be used as a substitute for lifecycle and file-handle regression coverage.
 
 == Lifecycle guarantees
 
