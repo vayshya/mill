@@ -55,6 +55,7 @@ The following observations describe the implementation at the time these tests w
 === Observed raw-launcher behavior
 
 * On the investigated Windows run, the raw daemon JVM command line contained runner artifacts resolved from `dist.raw.localRepo` through a path under the Coursier file cache. The encoded/cache path did not begin with the local repository directory, so checking only whether the resolved file path starts with the repository path misses its local-repository origin.
+* On that Windows run, the raw launcher's initial `show millVersion` command returned exit code 1 even though the daemon process remained running and its command line exposed the Coursier-cache-mediated local repository artifacts. The characterization therefore inspects the daemon independently of the launcher command's exit code and uses the bootstrap launcher as a client for the subsequent compile and clean operations.
 * On the investigated Linux run, the raw daemon runtime classpath contained JARs from `dist.raw.localRepo`. Zinc workers were also observed with local-repository artifacts on their runtime classpaths.
 * The daemon and Zinc workers are long-lived across client commands. The characterization must keep both alive while checking the result of `clean`; shutting them down first would hide the lifecycle behavior.
 * On Windows, the investigated raw-launcher clean failed while a live process retained a repository artifact. On Linux, filesystem deletion succeeded even though the daemon/workers remained alive; this does not establish that those processes can resolve the deleted local SNAPSHOT again.
@@ -62,7 +63,7 @@ The following observations describe the implementation at the time these tests w
 
 === Characterization test
 
-`characterize-local-repository-lifecycle.ps1` reproduces the raw-launcher sequence, records daemon and Zinc worker command lines, and runs `clean dist.raw.localRepo` while the same processes remain alive. It expects the currently observed Windows-versus-POSIX deletion behavior and reports whether daemon/worker command lines expose direct or Coursier-cache-mediated local repository paths.
+`characterize-local-repository-lifecycle.ps1` starts the daemon with the raw launcher, records daemon and Zinc worker command lines, then uses the bootstrap launcher as a client to compile and run `clean dist.raw.localRepo` while that same daemon and its workers remain alive. This keeps the raw-daemon classpath observation separate from the Windows raw-client exit-code anomaly. It expects the currently observed Windows-versus-POSIX deletion behavior and reports whether daemon/worker command lines expose direct or Coursier-cache-mediated local repository paths.
 
 These assertions are characterization only. When implementation behavior changes, update this section and the characterization expectations deliberately; do not weaken or repurpose the target requirements to make the characterization pass.
 
