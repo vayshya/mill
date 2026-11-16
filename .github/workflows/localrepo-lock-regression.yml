@@ -8,6 +8,23 @@ on:
 permissions:
   contents: read
 jobs:
+  local-repo-characterization:
+    name: Local repo characterization (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-java@v4
+        with:
+          distribution: zulu
+          java-version: '25'
+
   local-repo-open-handles:
     name: Local repo open handles (${{ matrix.os }})
     strategy:
