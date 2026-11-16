@@ -106,15 +106,41 @@ reachable from HEAD. The top-level `millVersion` fallback returns
 +
 link:https://github.com/vayshya/mill/blob/fork-versioning/libs/util/test/src/mill/util/VcsVersionGitTests.scala#L121-L146[CV-10 test]
 
-* CV-11 — Divergent histories
+* CV-11 — Divergent histories (characterization)
 +
 Create a graph in which upstream and fork branches diverge from a common
 ancestor, and characterize the selected tag and count returned by the
-existing `git describe` / `git rev-list` commands. The expected values must
-be asserted from the constructed graph rather than inferred from a
+existing `git describe` / `git rev-list` commands. The expected values are
+asserted from the constructed graph rather than inferred from a
 first-parent-only count.
 +
-link:https://github.com/vayshya/mill/blob/fork-versioning/libs/util/test/src/mill/util/VcsVersionGitTests.scala#L148-L164[CV-11 test]
+link:https://github.com/vayshya/mill/blob/fork-versioning/libs/util/test/src/mill/util/VcsVersionGitTests.scala[CV-11 test]
+
+=== Regression requirements (desired behavior)
+
+These requirements describe the intended fork-versioning behavior. They are
+deliberately separate from the characterization cases above and are expected
+to fail until the implementation supports an explicit upstream baseline.
+
+* CV-12 — Exclude upstream commits from the fork count
++
+Create a linear history with release tag `1.4.0-M2` on C, upstream commits D
+and E, and fork-only commits F and G. Keep an `upstream` branch at E while
+HEAD is at G. The calculated release tag remains `1.4.0-M2`, and only F and
+G count as fork commits: `commitsSinceLastTag = 2`.
++
+link:https://github.com/vayshya/mill/blob/fork-versioning/libs/util/test/src/mill/util/VcsVersionGitTests.scala[CV-12 test]
+
+* CV-13 — Use an upstream release tag when the checkout has no local tags
++
+Create a local bare upstream repository containing release tag
+`1.4.0-M2` and commits after it. Clone it with `--no-tags`, configure the
+remote as `upstream`, and add two fork-only commits. The checkout must have
+no local tags while the upstream remote still advertises the release tag.
+The calculated state must use `1.4.0-M2` and count only the two fork-only
+commits.
++
+link:https://github.com/vayshya/mill/blob/fork-versioning/libs/util/test/src/mill/util/VcsVersionGitTests.scala[CV-13 test]
 
 === Scope and constraints
 
