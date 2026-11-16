@@ -185,6 +185,21 @@ function Assert-MillDaemonClasspathDoesNotReferenceLocalRepo([string] $Phase) {
     Write-Host "PASS: Mill daemon runner classpath is independent of localRepo after $Phase."
 }
 
+function Assert-MillDaemonClasspathOutsideLocalRepo([string] $Phase) {
+    $needle = $localRepo.Replace('\\', '/').ToLowerInvariant()
+    $daemons = @(Get-MillProcesses | Where-Object Kind -eq 'daemon')
+    if ($daemons.Count -eq 0) {
+        throw "No Mill daemon process was found while checking its runtime classpath after $Phase."
+    }
+    foreach ($daemon in $daemons) {
+        $commandLine = $daemon.CommandLine.Replace('\\', '/').ToLowerInvariant()
+        if ($commandLine.Contains($needle)) {
+            throw "Mill daemon PID $($daemon.Id) has a runtime classpath that references the deletable localRepo after $Phase: $($daemon.CommandLine)"
+        }
+        Write-Host "PASS: daemon PID $($daemon.Id) runtime classpath does not reference localRepo after $Phase."
+    }
+}
+
 function Assert-MillProcesses([string] $Phase) {
     $processes = @(Get-MillProcesses)
     $daemons = @($processes | Where-Object Kind -eq 'daemon')
@@ -249,6 +264,10 @@ function Stop-MillProcesses([string] $Launcher, [string] $Phase) {
 }
 
 function Run-LauncherMatrix([string] $Launcher, [string] $Label, [bool] $VerifyRebuildAfterClean = $true) {
+    # Start the daemon without evaluating localRepo, then inspect the actual
+    # daemon JVM command line before localRepo task cleanup can mask the cause.
+    [void](Invoke-Mill $Launcher @('show', 'millVersion') "$Label / daemon startup")
+    Assert-MillDaemonClasspathOutsideLocalRepo "$Label / daemon startup"
     [void](Invoke-Mill $Launcher @('show', 'dist.raw.localRepo') "$Label / initial show")
     Assert-MillDaemonClasspathDoesNotReferenceLocalRepo "$Label / initial show"
     Assert-LocalRepoHasNoOpenFiles "$Label / initial show"
@@ -283,6 +302,9 @@ try {
     $buildCode = Invoke-Mill $bootstrapMill @('show', 'dist.raw.executable') 'bootstrap / build raw executable'
     if ($buildCode -ne 0) { throw 'Cannot run launcher matrix because dist.raw.executable did not build.' }
     if (-not (Test-Path -LiteralPath $rawMill -PathType Leaf)) { throw "Raw launcher not found: $rawMill" }
+    # The build step may itself start workers. Do not let its daemon or workers
+    # contaminate the launcher matrix that follows.
+    Stop-MillProcesses $bootstrapMill 'bootstrap / build raw executable'
     foreach ($entry in @(
         # Run bootstrap first; Stop-MillProcesses below shuts down its daemon and
         # workers before the raw-launcher scenario uses the shared output tree.
