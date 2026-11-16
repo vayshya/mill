@@ -55,7 +55,7 @@ object VcsVersionGitTests extends TestSuite {
   }
 
   val tests: Tests = Tests {
-    test("CV-01 exact tag at HEAD") {
+    test("VCS-VERSION-CV-01 exact tag at HEAD") {
       val repo = initRepo()
       commit(repo, "A")
       git(repo, "tag", "1.2.3")
@@ -65,7 +65,7 @@ object VcsVersionGitTests extends TestSuite {
       assert(result.commitsSinceLastTag == 0)
     }
 
-    test("CV-02 HEAD after a reachable tag") {
+    test("VCS-VERSION-CV-02 HEAD after a reachable tag") {
       val repo = initRepo()
       commit(repo, "A")
       git(repo, "tag", "1.2.3")
@@ -77,7 +77,7 @@ object VcsVersionGitTests extends TestSuite {
       assert(result.commitsSinceLastTag == 2)
     }
 
-    test("CV-03 no reachable tags") {
+    test("VCS-VERSION-CV-03 no reachable tags") {
       val repo = initRepo()
       commit(repo, "A")
       commit(repo, "B")
@@ -88,7 +88,7 @@ object VcsVersionGitTests extends TestSuite {
       assert(result.commitsSinceLastTag == 3)
     }
 
-    test("CV-04 tag selection follows git describe") {
+    test("VCS-VERSION-CV-04 tag selection follows git describe") {
       val repo = initRepo()
       commit(repo, "A")
       git(repo, "tag", "older-release")
@@ -104,7 +104,7 @@ object VcsVersionGitTests extends TestSuite {
       assert(result.commitsSinceLastTag == 1)
     }
 
-    test("CV-05 dirty working tree") {
+    test("VCS-VERSION-CV-05 dirty working tree") {
       val repo = initRepo()
       commit(repo, "A")
       os.write.over(repo / "A.txt", "modified")
@@ -119,7 +119,7 @@ object VcsVersionGitTests extends TestSuite {
       assert(state(repo).dirtyHash.isEmpty)
     }
 
-    test("CV-06 directory without a Git repository") {
+    test("VCS-VERSION-CV-06 directory without a Git repository") {
       val directory = os.temp.dir()
       val result = state(directory)
 
@@ -130,7 +130,7 @@ object VcsVersionGitTests extends TestSuite {
       assert(result.vcs.isEmpty)
     }
 
-    test("CV-09 upstream commits after the release tag are included") {
+    test("VCS-VERSION-CV-09 upstream commits after the release tag are included") {
       val repo = initRepo()
       commit(repo, "A")
       commit(repo, "B")
@@ -148,7 +148,7 @@ object VcsVersionGitTests extends TestSuite {
       assert(result.commitsSinceLastTag == 4)
     }
 
-    test("CV-12 rebase includes upstream commits in the count") {
+    test("VCS-VERSION-CV-12 rebase includes upstream commits in the count") {
       val repo = initRepo()
       commit(repo, "A")
       commit(repo, "B")
@@ -172,7 +172,7 @@ object VcsVersionGitTests extends TestSuite {
       assert(result.commitsSinceLastTag == 4)
     }
 
-    test("CV-10 fork checkout without available tags") {
+    test("VCS-VERSION-CV-10 fork checkout without available tags") {
       val parent = os.temp.dir()
       val source = parent / "source"
       os.makeDir(source)
@@ -197,7 +197,7 @@ object VcsVersionGitTests extends TestSuite {
       assert(result.commitsSinceLastTag == 7)
     }
 
-    test("CV-13 upstream tag is unavailable when not fetched locally") {
+    test("VCS-VERSION-CV-13 upstream tag is unavailable when not fetched locally") {
       val parent = os.temp.dir()
       val upstream = initRepo()
       commit(upstream, "A")
