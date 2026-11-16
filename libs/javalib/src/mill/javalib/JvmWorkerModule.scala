@@ -23,19 +23,6 @@ object JvmWorkerModule extends ExternalModule with JvmWorkerModule with Coursier
  */
 trait JvmWorkerModule extends OfflineSupportModule with CoursierModule {
 
-  // Local file repositories may be temporary (for example dist.raw.localRepo).
-  // Workers and their classloaders can outlive a task evaluation, so copy local
-  // artifacts into the stable Coursier cache before exposing them on a worker classpath.
-  override def coursierCacheCustomizer
-      : Task[Option[
-        coursier.cache.FileCache[coursier.util.Task] => coursier.cache.FileCache[coursier.util.Task]
-      ]] =
-    Task.Anon {
-      Some((cache: coursier.cache.FileCache[coursier.util.Task]) =>
-        cache.copy(localArtifactsShouldBeCached = true)
-      )
-    }
-
   def classpath: T[Seq[PathRef]] = Task {
     defaultResolver().classpath(Seq(
       Dep.millProjectModule("mill-libs-javalib-worker")
