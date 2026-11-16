@@ -298,6 +298,30 @@ the VCS version.
 +
 link:https://github.com/vayshya/mill/blob/fork-versioning/dist/test/src/ExampleZipTests.scala[VCSV-CHAR-21 test]
 
+=== Build wiring integration (characterization)
+
+These tests execute the repository's actual top-level `build.mill` in an
+isolated copy of the repository. They cover the policy applied by
+`millVersion` and `millLastTag`, rather than reimplementing that policy in
+a unit-test fixture.
+
+* VCSV-CHAR-07 — Build version fallback without tags
++
+Remove all local tags from the test checkout. Both `millVersion` and
+`millLastTag` must return `SNAPSHOT` when `VcsVersion` cannot discover a
+tag.
++
+link:https://github.com/vayshya/mill/blob/fork-versioning/integration/feature/vcs-version/src/VcsVersionBuildTests.scala[VCSV-CHAR-07 test]
+
+* VCSV-CHAR-08 — Build version ignores dirty state in CI
++
+Create a tag at HEAD and modify a tracked file. Outside CI,
+`millVersion` must include the dirty marker. With the `CI` environment
+variable present, the same task must return the tagged version without
+the dirty marker.
++
+link:https://github.com/vayshya/mill/blob/fork-versioning/integration/feature/vcs-version/src/VcsVersionBuildTests.scala[VCSV-CHAR-08 test]
+
 === Target requirements (TAR, desired behavior)
 
 These requirements describe the intended fork-versioning behavior. They are
