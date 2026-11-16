@@ -10,6 +10,28 @@ $localRepo = Join-Path $repoRoot 'out/dist/raw/localRepo.dest'
 $failures = [System.Collections.Generic.List[string]]::new()
 if (-not (Test-Path -LiteralPath $bootstrapMill -PathType Leaf)) { throw "Bootstrap launcher not found: $bootstrapMill" }
 
+function Write-LocalRepoLockDiagnostics([string] $Scenario) {
+    if (-not (Test-Path -LiteralPath $localRepo -PathType Container)) { return }
+    Write-Host "Lock diagnostics for $Scenario:"
+    $files = @(Get-ChildItem -LiteralPath $localRepo -File -Recurse | Select-Object -First 20)
+    $reported = 0
+    foreach ($file in $files) {
+        try {
+            $pids = @(Get-LockingProcessIds $file.FullName)
+            if ($pids.Count -gt 0) {
+                $reported++
+                Write-Host "  $($file.FullName) (locking PIDs: $($pids -join ', '))"
+                Write-Host (Format-LockingProcesses $pids)
+            }
+        } catch {
+            Write-Host "  $($file.FullName) (lock diagnostics unavailable: $($_.Exception.Message))"
+        }
+    }
+    if ($reported -eq 0) {
+        Write-Host "  No open files found in the first $($files.Count) files inspected."
+    }
+}
+
 function Invoke-Mill([string] $Launcher, [string[]] $MillArgs, [string] $Scenario) {
     Write-Host ([Environment]::NewLine + '=== ' + $Scenario + ' ===')
     Write-Host "Launcher: $Launcher"
@@ -17,7 +39,10 @@ function Invoke-Mill([string] $Launcher, [string[]] $MillArgs, [string] $Scenari
     $lines = @(& $Launcher @MillArgs 2>&1 | ForEach-Object { $_.ToString() })
     $code = $LASTEXITCODE
     $lines | ForEach-Object { Write-Host $_ }
-    if ($code -ne 0) { throw "$Scenario failed with exit code $code" }
+    if ($code -ne 0) {
+        Write-LocalRepoLockDiagnostics $Scenario
+        throw "$Scenario failed with exit code $code"
+    }
     Write-Host "PASS: $Scenario"
     return $code
 }
