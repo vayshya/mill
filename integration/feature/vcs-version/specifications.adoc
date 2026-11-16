@@ -172,6 +172,24 @@ link:https://github.com/vayshya/mill/blob/fork-versioning/libs/util/test/src/mil
 
 
 
+* CV-11 — CI checkout fetches history without tags
+
+The `test-dist` job in GitHub Actions Run #190 checks out the repository
+with `fetch-depth: 0` and `fetch-tags: false`. A full commit history does
+not make tag refs available when tag fetching is disabled. In this checkout,
+`VcsVersion` cannot discover a local release tag, and the build-level
+`millVersion` fallback therefore produces `SNAPSHOT`.
+
+The `mill.scripts.ExampleListTests.exampleListUrls` test then fails its
+assertion that the generated download URL does not contain `SNAPSHOT`.
+The failure occurs while checking the generated URL; this run does not
+attempt to download the Maven artifact and does not establish whether a
+SNAPSHOT artifact exists in Maven Central.
+
+Observed in
+link:https://github.com/vayshya/mill/actions/runs/43934491530[GitHub Actions Run #190],
+job `test-dist`.
+
 === Target requirements (desired behavior)
 
 These requirements describe the intended fork-versioning behavior. They are
