@@ -161,11 +161,6 @@ trait JvmWorkerModule extends OfflineSupportModule with CoursierModule {
     val ctx = Task.ctx()
     val jobs = ctx.jobs
 
-    val workerClasspath = classpath().map(_.path)
-    Task.log.debug(
-      s"JvmWorker internal worker classpath:\\n\${workerClasspath.mkString("\\n")}"
-    )
-
     val cl = internalWorkerClassLoader()
 
     val zincCompilerBridge = ZincCompilerBridgeProvider(
