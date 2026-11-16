@@ -101,7 +101,18 @@ try {
     Write-Host "Evaluating dist.raw.localRepo on $([System.Runtime.InteropServices.RuntimeInformation]::OSDescription)..."
     $result = Invoke-MillAndCapture @('show', 'dist.raw.localRepo')
     if ($result.ExitCode -ne 0) {
-        if (Test-LocalRepoLockError $result.Output) { throw 'FILE LOCK DETECTED while evaluating dist.raw.localRepo.' }
+        if (Test-LocalRepoLockError $result.Output) {
+            try {
+                $processIds = @(Get-LockingProcessIds $jarPath)
+                if ($processIds.Count -gt 0) {
+                    throw ("FILE LOCK DETECTED while evaluating dist.raw.localRepo; process ID(s) using the JAR: " + ($processIds -join ', ') + ".")
+                }
+                throw 'FILE LOCK DETECTED while evaluating dist.raw.localRepo; Windows Restart Manager returned no process IDs for the locked JAR.'
+            } catch {
+                if ($_.Exception.Message -like 'FILE LOCK DETECTED*') { throw }
+                throw ("FILE LOCK DETECTED while evaluating dist.raw.localRepo, but process lookup failed: " + $_.Exception.Message)
+            }
+        }
         throw "Mill failed while evaluating dist.raw.localRepo (exit code $($result.ExitCode))."
     }
     # Linux allows unlinking open files; inspect OS-level handles before cleanup.
