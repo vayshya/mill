@@ -1,0 +1,24 @@
+= Mill Project Specification
+
+This document is the project-level index of feature specifications and
+requirements. Feature-specific requirements are maintained alongside the
+corresponding feature under `integration/feature/<feature-name>/`.
+
+== Features
+
+=== VCS Versioning
+
+Mill derives version information from Git history through
+`mill.util.VcsVersion`. The result is used by the build's `millVersion`
+and `millLastTag` tasks.
+
+The feature covers Git tag discovery, commit counting, revision formatting,
+dirty-working-tree detection, and the build-level fallback when no tag is
+available.
+
+* link:integration/feature/vcs-version/requirements.adoc[VCS Versioning requirements]
+
+Implementation:
+* `libs/util/src/mill/util/VcsVersion.scala`
+* `build.mill` (`millVersion` and `millLastTag`)
+
