@@ -1,0 +1,94 @@
+= Local Repository Lifecycle
+
+== Overview
+
+The Local Repository Lifecycle feature defines how Mill manages the generated local artifact repository exposed as `dist.raw.localRepo` while the Mill daemon and Zinc workers are running.
+
+The repository is a temporary, generated artifact store used by Mill. Its lifecycle must be compatible with operating systems that prevent deletion of files while a process still has them open, particularly Windows.
+
+This feature is concerned with the complete lifecycle rather than repository selection:
+
+. Mill resolves artifacts from the generated local repository.
+. The daemon and Zinc workers finish using repository artifacts and release file handles.
+. The clean operation physically removes the repository directory.
+. Where supported by the launcher path, Mill recreates and repopulates the repository.
+. The already-running daemon and workers remain usable throughout the lifecycle.
+
+== Relationship to other features
+
+* `mill-repositories` defines which artifact repositories Mill uses to resolve dependencies.
+* `local-repository-lifecycle` defines how Mill's generated local repository is used, released, cleaned, deleted, and recreated.
+
+These features are related but have different responsibilities. A repository configuration test must not be used as a substitute for lifecycle and file-handle regression coverage.
+
+== Lifecycle guarantees
+
+The requirements and their verification criteria are defined below.
+
+The key guarantees are:
+
+* Repository JARs are not left open by the daemon or Zinc workers after resolution has completed.
+* Cleaning `dist.raw.localRepo` physically removes the directory without requiring the daemon or workers to terminate.
+* The bootstrap-launcher path can recreate a populated repository after clean and continue using the existing daemon.
+* The raw-launcher regression checks handle release and physical deletion independently of the unrelated post-clean daemon SNAPSHOT resolution path.
+
+== Verification
+
+The Windows file-handle regression is implemented by link:../../../../scripts/test-windows-localrepo-lock.ps1[the Windows local repository lock test].
+
+The test distinguishes bootstrap and raw launcher scenarios. The bootstrap scenario includes clean, rebuild, and daemon reuse. The raw-launcher scenario verifies file-handle release and physical deletion; its post-clean rebuild is deliberately excluded because that would also test a separate SNAPSHOT resolution path.
+
+== Out of scope
+
+* Choosing or configuring remote and local dependency repositories.
+* General dependency resolution behavior covered by the `mill-repositories` feature.
+* Tag-related `dist.test` behavior.
+* Raw-launcher post-clean daemon SNAPSHOT resolution.
+
+== Requirements
+
+=== LRL-001 — Repository files must not remain locked after resolution
+
+After Mill has resolved artifacts from the local repository, its daemon and Zinc worker processes must not retain open file handles to repository JARs that prevent the repository from being removed on Windows.
+
+Verification:
+* Run the local repository task through the launcher under test.
+* Inspect open file handles for files below `dist.raw.localRepo`.
+* Verify that no repository files remain open.
+
+=== LRL-002 — Clean must physically remove the local repository
+
+The clean operation for `dist.raw.localRepo` must remove the repository directory and its contents from disk, even while the Mill daemon and its workers remain running, provided they no longer hold files in that directory open.
+
+Verification:
+* Start the daemon and workers by invoking `dist.raw.localRepo`.
+* Record the daemon and worker process IDs.
+* Run clean.
+* Verify that the repository directory no longer exists.
+* Verify that the original daemon and worker processes are still alive.
+
+=== LRL-003 — Bootstrap launcher must rebuild the repository after clean
+
+After a successful clean, the bootstrap launcher must be able to recreate `dist.raw.localRepo` with its expected artifacts. Reusing the daemon after the rebuild must not require terminating the previously running daemon or workers.
+
+Verification:
+* Clean the repository using the bootstrap launcher scenario.
+* Invoke `dist.raw.localRepo` again.
+* Verify that the directory is recreated and contains files.
+* Verify that no repository files remain open and that the original daemon and worker processes are still alive.
+
+=== LRL-004 — Raw launcher clean scenario must be isolated from rebuild resolution
+
+The raw-launcher regression scenario verifies repository file-handle release and physical deletion. It must not treat a subsequent raw-launcher rebuild as part of this regression, because after deletion that rebuild can exercise the separate daemon SNAPSHOT dependency-resolution path.
+
+Verification:
+* Run the raw launcher scenario.
+* Verify that repository files are not held open and that clean physically removes the repository.
+* Do not assert raw-launcher rebuild behavior in this test.
+
+== Scope boundaries
+
+* This feature covers the lifecycle of the generated local repository: use, release of file handles, cleanup, physical deletion, and supported recreation.
+* Selection and configuration of artifact sources belong to `mill-repositories`.
+* External repository configuration and resolution of daemon SNAPSHOT artifacts after raw-repository deletion are not part of the raw-launcher handle regression.
+* Tag-related `dist.test` behavior is tracked separately.
