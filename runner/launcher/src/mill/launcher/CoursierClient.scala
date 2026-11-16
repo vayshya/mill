@@ -61,7 +61,7 @@ object CoursierClient {
     val millRepositories0 = millRepositories.sorted
 
     val cacheKey =
-      s"${BuildInfo.millVersion} ${overridesRepos.reverse.mkString("|")}|${millRepositories0.mkString("|")}"
+      s"${BuildInfo.millVersion} local-artifacts-cached-v1 ${overridesRepos.reverse.mkString("|")}|${millRepositories0.mkString("|")}"
 
     cached[Seq[os.Path]](
       cacheFile = cacheDir(outDir) / "mill-daemon-classpath",
@@ -69,7 +69,10 @@ object CoursierClient {
       validate = paths => paths.forall(os.exists(_))
     ) {
       val coursierCache0 = FileCache.create[Task]().copy(
-        logger = coursier.cache.loggers.RefreshLogger.create()
+        logger = coursier.cache.loggers.RefreshLogger.create(),
+        // The daemon outlives this launcher invocation. Never leave its runner
+        // classpath pointing into a temporary file repository such as dist.raw.localRepo.
+        localArtifactsShouldBeCached = true
       )
 
       val configuredRepos = mill.util.Jvm.reposFromStrings(millRepositories0).get
