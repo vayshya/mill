@@ -60,22 +60,16 @@ link:https://github.com/vayshya/mill/blob/fork-versioning/libs/util/test/src/mil
 
 * CV-07 — Mill version fallback
 +
-The `VcsVersion.formatMillVersion` policy used by the top-level
-`millVersion` task returns `SNAPSHOT` when the calculated state has no tag.
-This fallback is separate from `VcsVersion.State.format`, which can format
-an untagged state. The unit test exercises the formatting policy directly,
-not the build task itself.
-+
-link:https://github.com/vayshya/mill/blob/fork-versioning/libs/util/test/src/mill/util/VcsVersionTests.scala[CV-07 test]
+The top-level `millVersion` task returns `SNAPSHOT` when the calculated
+state has no tag. This fallback is implemented in `build.mill`, not in the
+`VcsVersion` API. It is not covered by the `VcsVersion` unit tests.
 
 * CV-08 — CI dirty-state handling
 +
-When the `millVersion` formatting policy is given `isCi = true`, it clears
-`dirtyHash` before formatting. Outside CI, the dirty hash is retained.
-The unit test exercises this policy directly, not environment detection in
-the build task.
-+
-link:https://github.com/vayshya/mill/blob/fork-versioning/libs/util/test/src/mill/util/VcsVersionTests.scala[CV-08 test]
+The top-level `millVersion` task clears `dirtyHash` when the `CI`
+environment variable is present; outside CI, the dirty hash is retained.
+This policy is implemented in `build.mill`, not in the `VcsVersion` API,
+and is not covered by the `VcsVersion` unit tests.
 
 === Upstream and tag discovery approaches to characterize
 
@@ -170,8 +164,9 @@ link:https://github.com/vayshya/mill/blob/fork-versioning/libs/util/test/src/mil
 +
 Create a repository with seven commits and no tags in the repository or on
 its remote. The checkout has no reachable tags, so the VCS state has no last
-tag and counts all seven commits. The `millVersion` formatting policy
-returns `SNAPSHOT`.
+tag and counts all seven commits. The `millVersion` task's `SNAPSHOT`
+fallback is a separate build-level behavior and is not asserted by this Git
+state test.
 +
 link:https://github.com/vayshya/mill/blob/fork-versioning/libs/util/test/src/mill/util/VcsVersionGitTests.scala[CV-10 test]
 
@@ -192,7 +187,9 @@ the `upstream` ref remains at E. The calculated release tag remains
 `1.4.0-M2`, and only the two rebased fork commits count:
 `commitsSinceLastTag = 2`. The test must use an actual `git rebase`.
 +
-link:https://github.com/vayshya/mill/blob/fork-versioning/libs/util/test/src/mill/util/VcsVersionGitTests.scala[CV-12 test]
+This desired behavior is not currently covered by a passing characterization
+test. The CV-12 test records the current `main` behavior instead: all four
+commits after the tag are counted.
 
 * CV-13 — Use an upstream release tag when the checkout has no local tags
 +
@@ -203,7 +200,9 @@ no local tags while the upstream remote still advertises the release tag.
 The calculated state must use `1.4.0-M2` and count only the two fork-only
 commits.
 +
-link:https://github.com/vayshya/mill/blob/fork-versioning/libs/util/test/src/mill/util/VcsVersionGitTests.scala[CV-13 test]
+This desired behavior is not currently covered by a passing characterization
+test. The CV-13 test records the current `main` behavior instead: the
+unfetched remote tag is not discovered, and all seven commits are counted.
 
 === Supported branch workflow
 
