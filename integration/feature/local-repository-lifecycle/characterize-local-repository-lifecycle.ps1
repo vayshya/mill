@@ -117,11 +117,17 @@ try {
     if ($daemons.Count -eq 0) { throw 'Raw daemon exited before the live-process clean observation.' }
     if ($workers.Count -eq 0) { throw 'No Zinc worker process was found; the worker lifecycle was not characterized.' }
 
+    $workerMentionsLocalRepo = $false
     foreach ($worker in $workers) {
         $normalized = $worker.CommandLine.Replace('\', '/').ToLowerInvariant()
-        $kind = if ($normalized.Contains($localRepoMarker)) { 'localRepo marker present' } else { 'no localRepo marker visible' }
+        $mentions = $normalized.Contains($localRepoMarker)
+        if ($mentions) { $workerMentionsLocalRepo = $true }
+        $kind = if ($mentions) { 'localRepo marker present' } else { 'no localRepo marker visible' }
         Write-Host "worker PID=$($worker.Id): $kind"
         Write-Host "  $($worker.CommandLine)"
+    }
+    if (-not $workerMentionsLocalRepo) {
+        throw 'Characterization changed: no Zinc worker command line exposed a localRepo artifact path.'
     }
 
     $originalIds = @($processes | ForEach-Object { [int]$_.Id })
