@@ -43,21 +43,71 @@ The key guarantees are:
 
 == Verification
 
-=== Linux container execution
+=== Acceptance-test execution
 
-`acceptance-tests.ps1` is the local entry point for all six Linux scenarios. It uses WSLC (`wslc build --pull` and `wslc run`) to build the feature Containerfile and execute each scenario in a separate container. The current Windows checkout is bind-mounted into each container, so tracked edits, deletions, and untracked non-ignored files are included without committing them. A named Coursier cache volume is shared between the scenario containers.
+The feature has six Linux acceptance/characterization scenarios. The local entry point is
+`acceptance-tests.ps1`; it selects the execution mode from the host operating system.
+The scenarios are run independently, and the entry point reports each result and exits with
+an error if one or more scenarios fail.
 
-The `local-repo-linux-docker` GitHub Actions job performs the corresponding image build and six isolated container runs with Docker on `ubuntu-latest`.
+==== Local execution on Windows
 
-The cross-platform lock and deletion acceptance test for `LRL-TAR-01`, `LRL-TAR-02`, and `LRL-TAR-06` is implemented by link:acceptance-lock.ps1[the local repository lock acceptance test].
+On Windows, `acceptance-tests.ps1` requires the WSL Containers CLI (`wslc.exe`) and the
+feature `Containerfile`. It builds the image with `wslc build --pull --file Containerfile`,
+then runs each of the six scenarios in a separate container using `wslc run --rm`.
 
-The bootstrap creation and rebuild acceptance test for `LRL-TAR-03` and `LRL-TAR-05` is implemented by link:acceptance-rebuild.ps1[the local repository rebuild acceptance test].
+The current repository checkout is bind-mounted into each container at `/workspace`.
+A named WSLC volume (`mill-local-repository-lifecycle-coursier` by default) is mounted at
+`/root/.cache/coursier` and shared by the scenario containers. Thus the scenarios use the
+current checkout rather than a copied or committed snapshot.
 
-The raw-launcher isolation acceptance test for `LRL-TAR-04` and `LRL-TAR-08` is implemented by link:acceptance-raw-launcher.ps1[the raw launcher lifecycle acceptance test].
+==== Local execution on Linux
 
-The concurrent-consumer acceptance test for `LRL-TAR-07` is implemented by link:acceptance-concurrency.ps1[the concurrent repository consumer acceptance test]. It keeps a real repository JAR open in a separate JVM while another Mill client cleans and republishes `dist.raw.localRepo`, then verifies the active consumer's initial state and the completeness of the republished repository.
+On Linux, `acceptance-tests.ps1` runs the same six scenarios directly on the host, without
+WSLC or another container runtime. It requires PowerShell 7 (`pwsh`), Java, Git, and
+`lsof`. Each scenario is delegated to `run-linux-test.ps1`, which creates a temporary
+detached Git worktree, overlays the checkout's tracked changes and untracked non-ignored
+files, runs the selected scenario, and removes the temporary worktree afterward.
 
-The tests distinguish the independent lifecycle responsibilities. The lock test covers open handles, clean deletion, and lock diagnostics; the rebuild test covers creation, population, clean, rebuild, and daemon reuse; the raw-launcher test covers raw-daemon classpath isolation and clean deletion without asserting post-clean rebuild; and the concurrency test covers publication isolation.
+==== GitHub Actions execution
+
+The `Local Repository Lifecycle Acceptance` workflow first runs a Windows PowerShell syntax
+validation job for all PowerShell scripts in the feature directory.
+
+The workflow then runs the six individual characterization/acceptance scripts on both
+`windows-latest` and `macos-latest`. These jobs execute the scripts directly with PowerShell
+and Zulu JDK 25; they do not use the local WSLC launcher.
+
+Linux is tested in two separate jobs on `ubuntu-latest`:
+
+* `local-repo-linux-direct` installs `lsof`, sets up Zulu JDK 25, and invokes
+  `acceptance-tests.ps1` directly with PowerShell. This exercises the same direct-host
+  Linux branch used for local Linux execution.
+* `local-repo-linux-docker` builds the feature `Containerfile` with Docker and runs each
+  of the six scenarios in a separate Docker container. The repository checkout is
+  bind-mounted at `/workspace`, and a named Coursier cache volume is shared between runs.
+
+The Docker job uses Docker because it is a GitHub-hosted Linux CI environment; the local
+Windows container path uses WSLC. These are distinct execution environments for the same
+Linux scenarios.
+
+==== Scenario coverage
+
+The six scenarios are:
+
+* `characterization` — `characterize-lifecycle.ps1`
+* `lock` — `acceptance-lock.ps1`
+* `rebuild` — `acceptance-rebuild.ps1`
+* `raw-launcher` — `acceptance-raw-launcher.ps1`
+* `concurrency` — `acceptance-concurrency.ps1`
+* `resolution-characterization` — `characterize-resolution.ps1`
+
+The tests distinguish the independent lifecycle responsibilities. The lock test covers open
+handles, clean deletion, and lock diagnostics; the rebuild test covers creation, population,
+clean, rebuild, and daemon reuse; the raw-launcher test covers raw-daemon classpath isolation
+and clean deletion without asserting post-clean rebuild; and the concurrency test covers
+publication isolation. The characterization scenarios record observed implementation
+behavior rather than imposing target pass/fail expectations.
 
 
 == Characterization requirements
