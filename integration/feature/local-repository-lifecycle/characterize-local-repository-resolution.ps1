@@ -9,14 +9,14 @@ $repo = Join-Path $root 'out/dist/raw/localRepo.dest'
 function Processes {
     if ($win) {
         foreach ($p in @(Get-CimInstance Win32_Process -Filter "Name = 'java.exe' OR Name = 'javaw.exe'")) {
-            if ($p.CommandLine -like '*mill.daemon.MillDaemonMain*') { [pscustomobject]@{ Id=[int]$p.ProcessId; Kind='daemon' } }
-            elseif ($p.CommandLine -like '*mill.javalib.worker.MillJvmWorkerMain*') { [pscustomobject]@{ Id=[int]$p.ProcessId; Kind='worker' } }
+            if ($p.CommandLine -like '*mill.daemon.MillDaemonMain*') { [pscustomobject]@{ Id=[int]$p.ProcessId; Kind='daemon'; CommandLine=$p.CommandLine } }
+            elseif ($p.CommandLine -like '*mill.javalib.worker.MillJvmWorkerMain*') { [pscustomobject]@{ Id=[int]$p.ProcessId; Kind='worker'; CommandLine=$p.CommandLine } }
         }
     } else {
         foreach ($line in @(& ps -eo pid=,args=)) {
             if ($line -match '^\s*(\d+)\s+(.*)$') {
-                if ($Matches[2].Contains('mill.daemon.MillDaemonMain')) { [pscustomobject]@{ Id=[int]$Matches[1]; Kind='daemon' } }
-                elseif ($Matches[2].Contains('mill.javalib.worker.MillJvmWorkerMain')) { [pscustomobject]@{ Id=[int]$Matches[1]; Kind='worker' } }
+                if ($Matches[2].Contains('mill.daemon.MillDaemonMain')) { [pscustomobject]@{ Id=[int]$Matches[1]; Kind='daemon'; CommandLine=$Matches[2] } }
+                elseif ($Matches[2].Contains('mill.javalib.worker.MillJvmWorkerMain')) { [pscustomobject]@{ Id=[int]$Matches[1]; Kind='worker'; CommandLine=$Matches[2] } }
             }
         }
     }
@@ -66,7 +66,15 @@ try {
     Shutdown $raw 'stop original daemon for fresh-daemon observation'
     Write-Host "CHAR-08 pre-start: localRepoExists=$(Test-Path -LiteralPath $repo -PathType Container)"
     $freshStart = Observe $raw @('show','millVersion') 'fresh raw daemon startup after clean'
-    $freshPids = @(Processes | Where-Object Kind -eq 'daemon' | ForEach-Object Id)
+    $freshDaemons = @(Processes | Where-Object Kind -eq 'daemon')
+    $freshPids = @($freshDaemons | ForEach-Object Id)
+    foreach ($daemon in $freshDaemons) {
+        $normalizedCommandLine = $daemon.CommandLine.Replace('\', '/').ToLowerInvariant()
+        $hasLocalRepoMarker = $normalizedCommandLine.Contains('localrepo.dest')
+        $usesCoursierFileCache = $hasLocalRepoMarker -and $normalizedCommandLine.Contains('/coursier/cache/v1/file/')
+        Write-Host "CHAR-08 daemon classpath: pid=$($daemon.Id); localRepoMarker=$hasLocalRepoMarker; coursierFileCachePath=$usesCoursierFileCache"
+        Write-Host $daemon.CommandLine
+    }
     $freshResolve = Observe $raw @('show','dist.raw.localRepo') 'fresh daemon repository resolve'
     $freshItems = @(Inventory 'fresh daemon resolve')
     Write-Host "CHAR-08: startup=$($freshStart.ExitCode); daemonPids=$($freshPids -join ','); resolve=$($freshResolve.ExitCode); files=$($freshItems.Count)"
