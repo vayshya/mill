@@ -1,4 +1,4 @@
-name: Local Repository Lifecycle Acceptance
+﻿name: Local Repository Lifecycle Acceptance
 on:
   push:
     branches:
@@ -68,7 +68,7 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y lsof
         shell: bash
       - name: Check repository locks and clean deletion
-        run: pwsh -NoProfile -File integration/feature/local-repository-lifecycle/test-local-repository-lock.ps1
+        run: pwsh -NoProfile -File integration/feature/local-repository-lifecycle/acceptance-local-repository-lock.ps1
         shell: pwsh
 
   local-repo-rebuild:
@@ -89,7 +89,7 @@ jobs:
           distribution: zulu
           java-version: '25'
       - name: Check repository creation and rebuild
-        run: pwsh -NoProfile -File integration/feature/local-repository-lifecycle/test-local-repository-rebuild.ps1
+        run: pwsh -NoProfile -File integration/feature/local-repository-lifecycle/acceptance-local-repository-rebuild.ps1
         shell: pwsh
 
   local-repo-raw-launcher:
@@ -114,7 +114,7 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y lsof
         shell: bash
       - name: Check raw launcher lifecycle
-        run: pwsh -NoProfile -File integration/feature/local-repository-lifecycle/test-local-repository-raw-launcher.ps1
+        run: pwsh -NoProfile -File integration/feature/local-repository-lifecycle/acceptance-local-repository-raw-launcher.ps1
         shell: pwsh
 
   local-repo-concurrency:
@@ -135,5 +135,26 @@ jobs:
           distribution: zulu
           java-version: '25'
       - name: Check concurrent repository consumer isolation
-        run: pwsh -NoProfile -File integration/feature/local-repository-lifecycle/test-local-repository-concurrency.ps1
+        run: pwsh -NoProfile -File integration/feature/local-repository-lifecycle/acceptance-local-repository-concurrency.ps1
+        shell: pwsh
+
+  local-repo-resolution-characterization:
+    needs: pwsh-syntax
+    name: Local repo resolution characterization (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-java@v4
+        with:
+          distribution: zulu
+          java-version: '25'
+      - name: Characterize repository resolution and repeated publication
+        run: pwsh -NoProfile -File integration/feature/local-repository-lifecycle/characterize-local-repository-resolution.ps1
         shell: pwsh

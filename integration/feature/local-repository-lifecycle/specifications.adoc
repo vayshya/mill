@@ -1,4 +1,4 @@
-= Local Repository Lifecycle Specifications
+﻿= Local Repository Lifecycle Specifications
 
 == Overview
 
@@ -43,58 +43,94 @@ The key guarantees are:
 
 == Verification
 
-The cross-platform lock and deletion regression for `LRL-TAR-01`, `LRL-TAR-02`, and `LRL-TAR-06` is implemented by link:test-local-repository-lock.ps1[the local repository lock test].
+The cross-platform lock and deletion acceptance test for `LRL-TAR-01`, `LRL-TAR-02`, and `LRL-TAR-06` is implemented by link:acceptance-local-repository-lock.ps1[the local repository lock acceptance test].
 
-The bootstrap creation and rebuild regression for `LRL-TAR-03` and `LRL-TAR-05` is implemented by link:test-local-repository-rebuild.ps1[the local repository rebuild test].
+The bootstrap creation and rebuild acceptance test for `LRL-TAR-03` and `LRL-TAR-05` is implemented by link:acceptance-local-repository-rebuild.ps1[the local repository rebuild acceptance test].
 
-The raw-launcher isolation regression for `LRL-TAR-04` and `LRL-TAR-08` is implemented by link:test-local-repository-raw-launcher.ps1[the raw launcher lifecycle test].
+The raw-launcher isolation acceptance test for `LRL-TAR-04` and `LRL-TAR-08` is implemented by link:acceptance-local-repository-raw-launcher.ps1[the raw launcher lifecycle acceptance test].
 
-The concurrent-consumer regression for `LRL-TAR-07` is implemented by link:test-local-repository-concurrency.ps1[the concurrent repository consumer test]. It keeps a real repository JAR open in a separate JVM while another Mill client cleans and republishes `dist.raw.localRepo`, then verifies the active consumer's initial state and the completeness of the republished repository.
+The concurrent-consumer acceptance test for `LRL-TAR-07` is implemented by link:acceptance-local-repository-concurrency.ps1[the concurrent repository consumer acceptance test]. It keeps a real repository JAR open in a separate JVM while another Mill client cleans and republishes `dist.raw.localRepo`, then verifies the active consumer's initial state and the completeness of the republished repository.
 
 The tests distinguish the independent lifecycle responsibilities. The lock test covers open handles, clean deletion, and lock diagnostics; the rebuild test covers creation, population, clean, rebuild, and daemon reuse; the raw-launcher test covers raw-daemon classpath isolation and clean deletion without asserting post-clean rebuild; and the concurrency test covers publication isolation.
 
 
-== Characterization
+== Characterization requirements
 
-The following observations describe the implementation at the time these tests were added. They are intentionally separate from the target lifecycle guarantees below: a characterization test records the current behavior and must not be interpreted as approval of that behavior.
+These requirements use the LRL-CHAR identifier series. They describe observed implementation behavior and are intentionally separate from the target lifecycle requirements (LRL-TAR). They characterize behavior; they do not approve it or weaken the target guarantees.
 
-=== Characterization observations
+=== LRL-CHAR-01 Р Р†Р вЂљРІР‚Сњ Windows raw-daemon classpath uses Coursier-cache-mediated local artifacts
 
-The following numbered observations describe the implementation at the time these tests were added. The `LRL-CHAR` identifier series is reserved for characterization records; it is independent of the `LRL` target-requirement series below. These records document observed behavior and are not target guarantees.
+On the investigated Windows run, the raw daemon JVM command line contained runner artifacts resolved from dist.raw.localRepo through a path under the Coursier file cache. The encoded/cache path did not begin with the local repository directory, so checking only whether the resolved file path starts with the repository path misses its local-repository origin.
 
-==== LRL-CHAR-01 — Windows raw-daemon classpath uses Coursier-cache-mediated local artifacts
+Verification:
+* Inspect the raw daemon JVM command line.
+* Record whether it contains the local repository marker under the Coursier file-cache path.
 
-On the investigated Windows run, the raw daemon JVM command line contained runner artifacts resolved from `dist.raw.localRepo` through a path under the Coursier file cache. The encoded/cache path did not begin with the local repository directory, so checking only whether the resolved file path starts with the repository path misses its local-repository origin.
+Existing test: characterize-local-repository-lifecycle.ps1 records each raw daemon classpath classification (direct path, Coursier-cache-mediated path, or no visible localRepo marker) without requiring one particular outcome. Coverage: observation implemented.
 
-==== LRL-CHAR-02 — Windows raw-launcher version command fails while daemon remains running
+=== LRL-CHAR-02 Р Р†Р вЂљРІР‚Сњ Windows raw-launcher version command fails while daemon remains running
 
-On that Windows run, the raw launcher's initial `show millVersion` command returned exit code 1 even though the daemon process remained running and its command line exposed the Coursier-cache-mediated local repository artifacts. The characterization therefore inspects the daemon independently of the launcher command's exit code and uses the bootstrap launcher as a client for the subsequent compile and clean operations.
+On the investigated Windows run, the raw launcher's initial show millVersion command returned exit code 1 even though the daemon process remained running and its command line exposed the Coursier-cache-mediated local repository artifacts.
 
-==== LRL-CHAR-03 — Linux raw daemon and Zinc workers expose local-repository artifacts on their classpaths
+Verification:
+* Run show millVersion through the raw launcher on Windows.
+* Record the command exit code.
+* Independently verify that the raw daemon remains running.
 
-On the investigated Linux run, the raw daemon runtime classpath contained JARs from `dist.raw.localRepo`. Zinc workers were also observed with local-repository artifacts on their runtime classpaths.
+Existing test: characterize-local-repository-lifecycle.ps1 records the raw launcher client exit code and independently checks whether the daemon process exists. Coverage: observation implemented; it does not assume a particular exit code.
 
-==== LRL-CHAR-04 — Daemon and Zinc workers outlive individual client commands
+=== LRL-CHAR-03 Р Р†Р вЂљРІР‚Сњ Linux raw daemon and Zinc workers expose local-repository artifacts on their classpaths
 
-The daemon and Zinc workers are long-lived across client commands. The characterization must keep both alive while checking the result of `clean`; shutting them down first would hide the lifecycle behavior.
+On the investigated Linux run, the raw daemon runtime classpath contained JARs from dist.raw.localRepo. Zinc workers were also observed with local-repository artifacts on their runtime classpaths.
 
-==== LRL-CHAR-05 — Investigated clean outcome differs between Windows and Linux
+Verification:
+* On Linux, inspect the raw daemon and Zinc worker command lines.
+* Verify that both expose a local-repository artifact marker.
+
+Existing test: characterize-local-repository-lifecycle.ps1 records daemon/worker inventory and each Zinc worker command-line classification on Windows, Linux, and macOS. Coverage: observation implemented; the Linux result is independently visible in its CI job log.
+
+=== LRL-CHAR-04 Р Р†Р вЂљРІР‚Сњ Daemon and Zinc workers outlive individual client commands
+
+The daemon and Zinc workers are long-lived across client commands. The characterization must keep both alive while checking the result of clean; shutting them down first would hide the lifecycle behavior.
+
+Verification:
+* Record the daemon and Zinc worker process IDs before clean.
+* Run clean while those processes are still active.
+* Verify that the original processes remain alive afterward.
+
+Existing test: characterize-local-repository-lifecycle.ps1 records original daemon/worker PIDs after raw compile and after clean, including which original PIDs exited. The same raw launcher is used for clean to avoid changing daemon versions mid-observation. Coverage: observation implemented.
+
+=== LRL-CHAR-05 Р Р†Р вЂљРІР‚Сњ Investigated clean outcome differs between Windows and POSIX
 
 On Windows, the investigated raw-launcher clean failed while a live process retained a repository artifact. On Linux, filesystem deletion succeeded even though the daemon/workers remained alive; this does not establish that those processes can resolve the deleted local SNAPSHOT again.
 
-==== LRL-CHAR-06 — No macOS outcome has been established
+Verification:
+* On Windows, verify that clean fails and the repository directory remains.
+* On POSIX, verify that clean succeeds and the repository directory is removed.
+* Verify independently that the original daemon and workers remain alive.
 
-The investigated macOS run did not complete, so no prior macOS outcome is claimed here. The characterization job records its result independently.
+Existing test: characterize-local-repository-lifecycle.ps1 records the clean exit code, platform, and whether localRepo still exists after clean, without asserting a predetermined OS outcome. Coverage: observation implemented.
+
+=== LRL-CHAR-06 Р Р†Р вЂљРІР‚Сњ No macOS-specific outcome had been established
+
+When this characterization was introduced, the investigated macOS run had not completed, so no macOS-specific outcome was established. A macOS CI job is configured, but running the generic POSIX branch does not provide a distinct macOS characterization.
+
+Verification:
+* Run the characterization job on macOS.
+* Record the macOS result independently from Linux.
+* Do not infer a macOS-specific observation solely from the generic POSIX branch.
+
+Existing test: the characterization workflow runs on macOS, and characterize-local-repository-lifecycle.ps1 emits a separate macOS result with clean exit code, repository existence, and process survival. Coverage: observation implemented.
 
 === Characterization test
 
-`characterize-local-repository-lifecycle.ps1` starts the daemon with the raw launcher, records daemon and Zinc worker command lines, then uses the bootstrap launcher as a client to compile and run `clean dist.raw.localRepo` while that same daemon and its workers remain alive. This keeps the raw-daemon classpath observation separate from the Windows raw-client exit-code anomaly. It expects the currently observed Windows-versus-POSIX deletion behavior and reports whether daemon/worker command lines expose direct or Coursier-cache-mediated local repository paths.
+characterize-local-repository-lifecycle.ps1 starts the daemon with the raw launcher, records raw-daemon classpath provenance and launcher exit status, starts compile workers, records their command lines, and runs clean while the observed daemon/workers remain active. It reports process survival, clean exit status, and repository existence on Windows, Linux, and macOS. Observations are not treated as pass/fail expectations; only prerequisites needed to perform the experiment (such as successfully starting a daemon) fail the test.
 
-These assertions are characterization only. When implementation behavior changes, update this section and the characterization expectations deliberately; do not weaken or repurpose the target requirements to make the characterization pass.
+When implementation behavior changes, update these characterization requirements and their test expectations deliberately. Do not weaken or repurpose the target requirements to make characterization pass.
 
 == Requirements
 
-=== LRL-TAR-01 — Repository files must not remain locked after resolution
+=== LRL-TAR-01 Р Р†Р вЂљРІР‚Сњ Repository files must not remain locked after resolution
 
 After Mill has resolved artifacts from the local repository, its daemon and Zinc worker processes must not retain open file handles to repository JARs that prevent the repository from being removed on Windows.
 
@@ -104,7 +140,7 @@ Verification:
 * Inspect open file handles for files below `dist.raw.localRepo`.
 * Verify that no repository files remain open.
 
-=== LRL-TAR-02 — Clean must physically remove the local repository
+=== LRL-TAR-02 Р Р†Р вЂљРІР‚Сњ Clean must physically remove the local repository
 
 The clean operation for `dist.raw.localRepo` must remove the repository directory and its contents from disk, even while the Mill daemon and its workers remain running, provided they no longer hold files in that directory open.
 
@@ -115,7 +151,7 @@ Verification:
 * Verify that the repository directory no longer exists.
 * Verify that the original daemon and worker processes are still alive.
 
-=== LRL-TAR-03 — Bootstrap launcher must rebuild the repository after clean
+=== LRL-TAR-03 Р Р†Р вЂљРІР‚Сњ Bootstrap launcher must rebuild the repository after clean
 
 After a successful clean, the bootstrap launcher must be able to recreate `dist.raw.localRepo` with its expected artifacts. Reusing the daemon after the rebuild must not require terminating the previously running daemon or workers.
 
@@ -125,7 +161,7 @@ Verification:
 * Verify that the directory is recreated and contains files.
 * Verify that no repository files remain open and that the original daemon and worker processes are still alive.
 
-=== LRL-TAR-04 — Raw launcher clean scenario must be isolated from rebuild resolution
+=== LRL-TAR-04 Р Р†Р вЂљРІР‚Сњ Raw launcher clean scenario must be isolated from rebuild resolution
 
 The raw-launcher regression scenario verifies repository file-handle release and physical deletion. It must not treat a subsequent raw-launcher rebuild as part of this regression, because after deletion that rebuild can exercise the separate daemon SNAPSHOT dependency-resolution path.
 
@@ -134,7 +170,7 @@ Verification:
 * Verify that repository files are not held open and that clean physically removes the repository.
 * Do not assert raw-launcher rebuild behavior in this test.
 
-=== LRL-TAR-05 — Repository must be created and populated when requested
+=== LRL-TAR-05 Р Р†Р вЂљРІР‚Сњ Repository must be created and populated when requested
 
 When Mill resolves `dist.raw.localRepo`, the generated repository must be created if it does not exist and populated with the artifacts required by the requested operation. A successful task result must not leave the repository missing or unusable.
 
@@ -146,7 +182,7 @@ Verification:
 
 The focused bootstrap rebuild script is the integration-test location for this scenario; its initial-resolution checks assert repository existence and contents, not only successful task exit.
 
-=== LRL-TAR-06 — Lock diagnostics must identify processes holding repository files
+=== LRL-TAR-06 Р Р†Р вЂљРІР‚Сњ Lock diagnostics must identify processes holding repository files
 
 When the lifecycle regression detects an open file under `dist.raw.localRepo`, its diagnostic output must identify the affected file and the process or processes holding it open. Where the operating system exposes the information, diagnostics must include process identifiers and useful process details (such as executable name and command line). Failure to collect supplemental process details must not hide the original lock failure.
 
@@ -158,7 +194,7 @@ Verification:
 
 The focused local repository lock script contains platform-specific lock probes and process-detail formatting; the assertions and failure output must continue to satisfy this requirement.
 
-=== LRL-TAR-07 — Concurrent repository updates must preserve the state observed by active consumers
+=== LRL-TAR-07 Р Р†Р вЂљРІР‚Сњ Concurrent repository updates must preserve the state observed by active consumers
 
 An operation that has started using the generated local repository must continue to observe a consistent repository state for the duration of that operation, even if another process or operation updates the repository concurrently.
 
@@ -174,7 +210,7 @@ Verification:
 * Start a new consumer after publication and verify that it observes the complete updated state.
 * Verify that files belonging to the initial state are not removed while the original consumer still depends on them, and can be reclaimed after that consumer finishes.
 
-=== LRL-TAR-08 — Raw daemon runtime classpath must not depend on the deletable local repository
+=== LRL-TAR-08 Р Р†Р вЂљРІР‚Сњ Raw daemon runtime classpath must not depend on the deletable local repository
 
 The raw launcher must not start its long-lived Mill daemon with runtime classpath entries located inside `dist.raw.localRepo`. The daemon outlives the launcher invocation, so any runner artifact loaded directly from that generated repository can remain open and prevent the repository from being cleaned on Windows. Local SNAPSHOT artifacts must be resolved into a stable location outside the generated repository before they are placed on the daemon runtime classpath. Re-resolution on a later daemon start must still observe a newly published local SNAPSHOT.
 
@@ -184,3 +220,53 @@ Verification:
 * Inspect the daemon JVM command line and verify that its runtime classpath does not contain a path below `dist.raw.localRepo`.
 * Verify that the same daemon can then evaluate `dist.raw.localRepo` and clean it while remaining alive.
 * Republish a distinguishable local SNAPSHOT, start a new daemon, and verify that the new daemon resolves the updated artifact while the previous daemon's classpath remains stable.
+
+== Additional characterization requirements
+
+=== LRL-CHAR-07 Same-daemon localRepo task after clean
+
+Record whether a raw-launcher daemon can evaluate `dist.raw.localRepo` again after `clean dist.raw.localRepo`, without restarting that daemon. This observes task re-evaluation; it does not claim that an already-running daemon re-resolves its own runner classpath.
+
+Verification:
+* Resolve `dist.raw.localRepo` through the raw launcher.
+* Record the daemon and worker process IDs.
+* Clean `dist.raw.localRepo` and record the command exit code and immediate filesystem state.
+* Invoke `dist.raw.localRepo` again through the same raw launcher.
+* Record the second command exit code, resulting repository inventory, and survival of the original processes.
+
+Characterization test: `characterize-local-repository-resolution.ps1`. Coverage: same-daemon clean and re-resolution are observed; command failure is recorded, not treated as a predetermined expected outcome.
+
+=== LRL-CHAR-08 Fresh-daemon startup after local repository clean
+
+Record whether a newly started raw daemon can start and resolve the local repository after the repository has been cleaned and the previous daemon has been shut down.
+
+Verification:
+* Clean `dist.raw.localRepo` and record whether the directory remains.
+* Shut down the original daemon and record process survival.
+* Start a fresh daemon with the raw launcher using `show millVersion`.
+* Record startup status, new daemon PID, repository state, and the result/inventory of a subsequent `show dist.raw.localRepo`.
+
+Characterization test: `characterize-local-repository-resolution.ps1`. Coverage: fresh-daemon startup and subsequent repository resolution are recorded independently.
+
+=== LRL-CHAR-09 Local repository contents across clean
+
+Record the actual files and directories present in the generated local repository before and after clean, rather than reducing the result to a single directory-exists check.
+
+Verification:
+* Record each file's relative path, size, and SHA-256 before clean.
+* Record the same inventory immediately after clean and after any subsequent resolution.
+* Preserve the observed inventory in the job log.
+
+Characterization test: `characterize-local-repository-resolution.ps1`. Coverage: inventory is emitted for each measured phase; no particular file-removal outcome is assumed.
+
+=== LRL-CHAR-10 Repeated local repository publication and resolution
+
+Record the outcome of a repeated publication/resolution lifecycle and whether the generated repository contents change between publications.
+
+Verification:
+* Run `show dist.raw.localRepo` and record the resulting inventory.
+* Clean the repository and record its immediate state.
+* Run `show dist.raw.localRepo` again and record the second inventory.
+* Compare relative paths, sizes, and SHA-256 fingerprints, reporting added, removed, and changed files.
+
+Characterization test: `characterize-local-repository-resolution.ps1`. Coverage: the sequence `publish/resolve -> clean -> publish/resolve` and its inventory differences are recorded without asserting that the two publications must be identical or different.

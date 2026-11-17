@@ -75,6 +75,7 @@ function Start-RepositoryConsumer([string] $JarPath) {
 New-Item -ItemType Directory -Force -Path $workDir | Out-Null
 Push-Location $repoRoot
 $consumer = $null
+$scenarioPassed = $false
 try {
     New-ConsumerHelper
     if (-not (Test-Path -LiteralPath $bootstrapMill -PathType Leaf)) { throw "Bootstrap launcher not found: $bootstrapMill" }
@@ -91,12 +92,19 @@ try {
     do {
         Start-Sleep -Milliseconds 100
         if (Test-Path -LiteralPath $consumerOutput) {
-            if ((Get-Content -LiteralPath $consumerOutput -Raw) -match '(?m)^OPEN$') { break }
+            if ((Get-Content -LiteralPath $consumerOutput -Raw) -match '(?m)^OPEN\r?$') { break }
         }
-        if ($consumer.HasExited) { throw "Consumer exited early. stderr: $(Get-Content -LiteralPath $consumerError -Raw)" }
+        if ($consumer.HasExited) {
+            $stderrText = if (Test-Path -LiteralPath $consumerError) { Get-Content -LiteralPath $consumerError -Raw } else { '<stderr file not created>' }
+            $stdoutText = if (Test-Path -LiteralPath $consumerOutput) { Get-Content -LiteralPath $consumerOutput -Raw } else { '<consumer output file not created>' }
+            throw "Consumer exited early (PID $($consumer.Id), exit $($consumer.ExitCode)). stdout: $stdoutText stderr: $stderrText"
+        }
     } while ([DateTime]::UtcNow -lt $deadline)
-    if (-not (Test-Path -LiteralPath $consumerOutput) -or (Get-Content -LiteralPath $consumerOutput -Raw) -notmatch '(?m)^OPEN$') {
-        throw 'Timed out waiting for consumer to open the initial repository artifact.'
+    if (-not (Test-Path -LiteralPath $consumerOutput) -or (Get-Content -LiteralPath $consumerOutput -Raw) -notmatch '(?m)^OPEN\r?$') {
+        $processInfo = Get-CimInstance Win32_Process -Filter "ProcessId = $($consumer.Id)" -ErrorAction SilentlyContinue
+        $stderrText = if (Test-Path -LiteralPath $consumerError) { Get-Content -LiteralPath $consumerError -Raw } else { '<stderr file not created>' }
+        $stdoutText = if (Test-Path -LiteralPath $consumerOutput) { Get-Content -LiteralPath $consumerOutput -Raw } else { '<consumer output file not created>' }
+        throw "Timed out waiting for consumer OPEN. PID=$($consumer.Id); HasExited=$($consumer.HasExited); CommandLine=$($processInfo.CommandLine); stdout=$stdoutText; stderr=$stderrText; workDir=$workDir"
     }
 
     $publisherOutput = Join-Path $workDir 'publisher.out'
@@ -123,16 +131,22 @@ try {
     New-Item -ItemType File -Force -Path $releaseFile | Out-Null
     $consumer.WaitForExit()
     if ($consumer.ExitCode -ne 0) { throw "Active consumer observed an inconsistent artifact. stderr: $(Get-Content -LiteralPath $consumerError -Raw)" }
-    if ((Get-Content -LiteralPath $consumerOutput -Raw) -notmatch '(?m)^CONSISTENT$') {
+    if ((Get-Content -LiteralPath $consumerOutput -Raw) -notmatch '(?m)^CONSISTENT\r?$') {
         throw 'Active consumer did not confirm a consistent artifact.'
     }
     Write-Host 'PASS: LRL-TAR-07 active consumer retained a consistent artifact during concurrent repository publication.'
     Write-Host "PASS: republished repository contains $($rebuiltInventory.Count) files."
+    $scenarioPassed = $true
 } finally {
     if ($null -ne $consumer -and -not $consumer.HasExited) {
         try { New-Item -ItemType File -Force -Path $releaseFile | Out-Null; $consumer.WaitForExit(5000) | Out-Null } catch {}
         if (-not $consumer.HasExited) { Stop-Process -Id $consumer.Id -Force }
     }
+    try { & $bootstrapMill shutdown 2>&1 | Out-Null } catch {}
     Pop-Location
-    if (Test-Path -LiteralPath $workDir) { Remove-Item -LiteralPath $workDir -Recurse -Force }
+    if ($scenarioPassed -and (Test-Path -LiteralPath $workDir)) {
+        Remove-Item -LiteralPath $workDir -Recurse -Force
+    } elseif (Test-Path -LiteralPath $workDir) {
+        Write-Host "DIAGNOSTICS PRESERVED: $workDir"
+    }
 }

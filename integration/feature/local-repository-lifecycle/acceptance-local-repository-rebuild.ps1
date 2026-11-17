@@ -59,6 +59,7 @@ try {
     if ($initialFiles.Count -eq 0) { throw 'initial localRepo is empty.' }
     Write-Host "PASS: initial localRepo contains $($initialFiles.Count) files."
 
+    Invoke-Mill @('clean', '__.compile') 'clear compile outputs to ensure Zinc worker startup'
     Invoke-Mill @('__.compile') 'start daemon and Zinc worker'
     $processes = @(Get-MillProcesses)
     $expectedIds = @($processes | ForEach-Object Id)
