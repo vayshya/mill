@@ -43,13 +43,19 @@ The key guarantees are:
 
 == Verification
 
-The cross-platform lock and deletion acceptance test for `LRL-TAR-01`, `LRL-TAR-02`, and `LRL-TAR-06` is implemented by link:acceptance-local-repository-lock.ps1[the local repository lock acceptance test].
+=== Linux container execution
 
-The bootstrap creation and rebuild acceptance test for `LRL-TAR-03` and `LRL-TAR-05` is implemented by link:acceptance-local-repository-rebuild.ps1[the local repository rebuild acceptance test].
+`acceptance-tests.ps1` is the local entry point for all six Linux scenarios. It uses WSLC (`wslc build --pull` and `wslc run`) to build the feature Containerfile and execute each scenario in a separate container. The current Windows checkout is bind-mounted into each container, so tracked edits, deletions, and untracked non-ignored files are included without committing them. A named Coursier cache volume is shared between the scenario containers.
 
-The raw-launcher isolation acceptance test for `LRL-TAR-04` and `LRL-TAR-08` is implemented by link:acceptance-local-repository-raw-launcher.ps1[the raw launcher lifecycle acceptance test].
+The `local-repo-linux-docker` GitHub Actions job performs the corresponding image build and six isolated container runs with Docker on `ubuntu-latest`.
 
-The concurrent-consumer acceptance test for `LRL-TAR-07` is implemented by link:acceptance-local-repository-concurrency.ps1[the concurrent repository consumer acceptance test]. It keeps a real repository JAR open in a separate JVM while another Mill client cleans and republishes `dist.raw.localRepo`, then verifies the active consumer's initial state and the completeness of the republished repository.
+The cross-platform lock and deletion acceptance test for `LRL-TAR-01`, `LRL-TAR-02`, and `LRL-TAR-06` is implemented by link:acceptance-lock.ps1[the local repository lock acceptance test].
+
+The bootstrap creation and rebuild acceptance test for `LRL-TAR-03` and `LRL-TAR-05` is implemented by link:acceptance-rebuild.ps1[the local repository rebuild acceptance test].
+
+The raw-launcher isolation acceptance test for `LRL-TAR-04` and `LRL-TAR-08` is implemented by link:acceptance-raw-launcher.ps1[the raw launcher lifecycle acceptance test].
+
+The concurrent-consumer acceptance test for `LRL-TAR-07` is implemented by link:acceptance-concurrency.ps1[the concurrent repository consumer acceptance test]. It keeps a real repository JAR open in a separate JVM while another Mill client cleans and republishes `dist.raw.localRepo`, then verifies the active consumer's initial state and the completeness of the republished repository.
 
 The tests distinguish the independent lifecycle responsibilities. The lock test covers open handles, clean deletion, and lock diagnostics; the rebuild test covers creation, population, clean, rebuild, and daemon reuse; the raw-launcher test covers raw-daemon classpath isolation and clean deletion without asserting post-clean rebuild; and the concurrency test covers publication isolation.
 
@@ -66,7 +72,7 @@ Verification:
 * Inspect the raw daemon JVM command line.
 * Record whether it contains the local repository marker under the Coursier file-cache path.
 
-Existing test: characterize-local-repository-lifecycle.ps1 records each raw daemon classpath classification (direct path, Coursier-cache-mediated path, or no visible localRepo marker) without requiring one particular outcome. Coverage: observation implemented.
+Existing test: characterize-lifecycle.ps1 records each raw daemon classpath classification (direct path, Coursier-cache-mediated path, or no visible localRepo marker) without requiring one particular outcome. Coverage: observation implemented.
 
 === LRL-CHAR-02 — Windows raw-launcher version command fails while daemon remains running
 
@@ -77,7 +83,7 @@ Verification:
 * Record the command exit code.
 * Independently verify that the raw daemon remains running.
 
-Existing test: characterize-local-repository-lifecycle.ps1 records the raw launcher client exit code and independently checks whether the daemon process exists. Coverage: observation implemented; it does not assume a particular exit code.
+Existing test: characterize-lifecycle.ps1 records the raw launcher client exit code and independently checks whether the daemon process exists. Coverage: observation implemented; it does not assume a particular exit code.
 
 === LRL-CHAR-03 — Linux raw daemon and Zinc workers expose local-repository artifacts on their classpaths
 
@@ -87,7 +93,7 @@ Verification:
 * On Linux, inspect the raw daemon and Zinc worker command lines.
 * Verify that both expose a local-repository artifact marker.
 
-Existing test: characterize-local-repository-lifecycle.ps1 records daemon/worker inventory and each Zinc worker command-line classification on Windows, Linux, and macOS. Coverage: observation implemented; the Linux result is independently visible in its CI job log.
+Existing test: characterize-lifecycle.ps1 records daemon/worker inventory and each Zinc worker command-line classification on Windows, Linux, and macOS. Coverage: observation implemented; the Linux result is independently visible in its CI job log.
 
 === LRL-CHAR-04 — Daemon and Zinc workers outlive individual client commands
 
@@ -98,7 +104,7 @@ Verification:
 * Run clean while those processes are still active.
 * Verify that the original processes remain alive afterward.
 
-Existing test: characterize-local-repository-lifecycle.ps1 records original daemon/worker PIDs after raw compile and after clean, including which original PIDs exited. The same raw launcher is used for clean to avoid changing daemon versions mid-observation. Coverage: observation implemented.
+Existing test: characterize-lifecycle.ps1 records original daemon/worker PIDs after raw compile and after clean, including which original PIDs exited. The same raw launcher is used for clean to avoid changing daemon versions mid-observation. Coverage: observation implemented.
 
 === LRL-CHAR-05 — Investigated clean outcome differs between Windows and POSIX
 
@@ -109,7 +115,7 @@ Verification:
 * On POSIX, verify that clean succeeds and the repository directory is removed.
 * Verify independently that the original daemon and workers remain alive.
 
-Existing test: characterize-local-repository-lifecycle.ps1 records the clean exit code, platform, and whether localRepo still exists after clean, without asserting a predetermined OS outcome. Coverage: observation implemented.
+Existing test: characterize-lifecycle.ps1 records the clean exit code, platform, and whether localRepo still exists after clean, without asserting a predetermined OS outcome. Coverage: observation implemented.
 
 === LRL-CHAR-06 — No macOS-specific outcome had been established
 
@@ -120,11 +126,11 @@ Verification:
 * Record the macOS result independently from Linux.
 * Do not infer a macOS-specific observation solely from the generic POSIX branch.
 
-Existing test: the characterization workflow runs on macOS, and characterize-local-repository-lifecycle.ps1 emits a separate macOS result with clean exit code, repository existence, and process survival. Coverage: observation implemented.
+Existing test: the characterization workflow runs on macOS, and characterize-lifecycle.ps1 emits a separate macOS result with clean exit code, repository existence, and process survival. Coverage: observation implemented.
 
 === Characterization test
 
-characterize-local-repository-lifecycle.ps1 starts the daemon with the raw launcher, records raw-daemon classpath provenance and launcher exit status, starts compile workers, records their command lines, and runs clean while the observed daemon/workers remain active. It reports process survival, clean exit status, and repository existence on Windows, Linux, and macOS. Observations are not treated as pass/fail expectations; only prerequisites needed to perform the experiment (such as successfully starting a daemon) fail the test.
+characterize-lifecycle.ps1 starts the daemon with the raw launcher, records raw-daemon classpath provenance and launcher exit status, starts compile workers, records their command lines, and runs clean while the observed daemon/workers remain active. It reports process survival, clean exit status, and repository existence on Windows, Linux, and macOS. Observations are not treated as pass/fail expectations; only prerequisites needed to perform the experiment (such as successfully starting a daemon) fail the test.
 
 When implementation behavior changes, update these characterization requirements and their test expectations deliberately. Do not weaken or repurpose the target requirements to make characterization pass.
 
@@ -234,7 +240,7 @@ Verification:
 * Invoke `dist.raw.localRepo` again through the same raw launcher.
 * Record the second command exit code, resulting repository inventory, and survival of the original processes.
 
-Characterization test: `characterize-local-repository-resolution.ps1`. Coverage: same-daemon clean and re-resolution are observed; command failure is recorded, not treated as a predetermined expected outcome.
+Characterization test: `characterize-resolution.ps1`. Coverage: same-daemon clean and re-resolution are observed; command failure is recorded, not treated as a predetermined expected outcome.
 
 === LRL-CHAR-08 Fresh-daemon startup after local repository clean
 
@@ -246,7 +252,7 @@ Verification:
 * Start a fresh daemon with the raw launcher using `show millVersion`.
 * Record startup status, new daemon PID, repository state, and the result/inventory of a subsequent `show dist.raw.localRepo`.
 
-Characterization test: `characterize-local-repository-resolution.ps1`. Coverage: fresh-daemon startup and subsequent repository resolution are recorded independently.
+Characterization test: `characterize-resolution.ps1`. Coverage: fresh-daemon startup and subsequent repository resolution are recorded independently.
 
 === LRL-CHAR-09 Local repository contents across clean
 
@@ -257,7 +263,7 @@ Verification:
 * Record the same inventory immediately after clean and after any subsequent resolution.
 * Preserve the observed inventory in the job log.
 
-Characterization test: `characterize-local-repository-resolution.ps1`. Coverage: inventory is emitted for each measured phase; no particular file-removal outcome is assumed.
+Characterization test: `characterize-resolution.ps1`. Coverage: inventory is emitted for each measured phase; no particular file-removal outcome is assumed.
 
 === LRL-CHAR-10 Repeated local repository publication and resolution
 
@@ -269,4 +275,4 @@ Verification:
 * Run `show dist.raw.localRepo` again and record the second inventory.
 * Compare relative paths, sizes, and SHA-256 fingerprints, reporting added, removed, and changed files.
 
-Characterization test: `characterize-local-repository-resolution.ps1`. Coverage: the sequence `publish/resolve -> clean -> publish/resolve` and its inventory differences are recorded without asserting that the two publications must be identical or different.
+Characterization test: `characterize-resolution.ps1`. Coverage: the sequence `publish/resolve -> clean -> publish/resolve` and its inventory differences are recorded without asserting that the two publications must be identical or different.
