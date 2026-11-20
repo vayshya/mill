@@ -1,0 +1,79 @@
+name: Windows Runner Info
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  runner-info:
+    name: Windows runner and browser versions
+    runs-on: windows-latest
+    steps:
+      - name: Print Windows runner details
+        shell: pwsh
+        run: |
+          $os = Get-CimInstance Win32_OperatingSystem
+          $product = Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion'
+          Write-Host '=== Windows ==='
+          Write-Host "ProductName: $($product.ProductName)"
+          Write-Host "EditionID: $($product.EditionID)"
+          Write-Host "InstallationType: $($product.InstallationType)"
+          Write-Host "DisplayVersion: $($product.DisplayVersion)"
+          Write-Host "CurrentBuild: $($product.CurrentBuild)"
+          Write-Host "UBR: $($product.UBR)"
+          Write-Host "Build: $($os.Version)"
+          Write-Host "OSArchitecture: $($os.OSArchitecture)"
+          Write-Host "Caption: $($os.Caption)"
+
+      - name: Print browser and driver versions
+        shell: pwsh
+        run: |
+          $commands = @(
+            'chrome', 'msedge', 'firefox',
+            'chromedriver', 'msedgedriver', 'geckodriver',
+            'IEDriverServer', 'selenium-server'
+          )
+
+          $knownPaths = @(
+            "$env:ProgramFiles\Google\Chrome\Application\chrome.exe",
+            "${env:ProgramFiles(x86)}\Google\Chrome\Application\chrome.exe",
+            "$env:ProgramFiles(x86)\Microsoft\Edge\Application\msedge.exe",
+            "$env:ProgramFiles\Microsoft\Edge\Application\msedge.exe",
+            "$env:ProgramFiles\Mozilla Firefox\firefox.exe",
+            "$env:ProgramFiles(x86)\Mozilla Firefox\firefox.exe"
+          )
+
+          Write-Host '=== Browser / driver commands ==='
+          foreach ($name in $commands) {
+            $command = Get-Command $name -ErrorAction SilentlyContinue | Select-Object -First 1
+            if ($command) {
+              Write-Host "$name command: $($command.Source)"
+              try {
+                & $command.Source --version 2>&1 | ForEach-Object { Write-Host "  $_" }
+              } catch {
+                Write-Host "  Version command failed: $($_.Exception.Message)"
+              }
+            } else {
+              Write-Host "$name command: not found in PATH"
+            }
+          }
+
+          Write-Host '=== Browser executable file versions ==='
+          foreach ($path in $knownPaths) {
+            if (Test-Path $path) {
+              $file = Get-Item $path
+              Write-Host "$path : $($file.VersionInfo.ProductVersion)"
+            }
+          }
+
+          Write-Host '=== Installed browser-related applications ==='
+          $uninstallRoots = @(
+            'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*',
+            'HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*'
+          )
+          Get-ItemProperty $uninstallRoots -ErrorAction SilentlyContinue |
+            Where-Object { $_.DisplayName -match 'Chrome|Microsoft Edge|Firefox|Selenium|WebDriver|Internet Explorer' } |
+            Sort-Object DisplayName -Unique |
+            ForEach-Object { Write-Host "$($_.DisplayName) | $($_.DisplayVersion)" }
